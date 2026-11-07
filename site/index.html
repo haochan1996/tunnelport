@@ -376,8 +376,9 @@
             <div class="faq__item">
               <span class="faq__q">我的数据会经过你们的服务器吗？</span>
               <span class="faq__a"
-                >不会，我们没有服务器。中继进程跑在你自己的 VPS 上，隧道是 TCP 转发加 noise
-                加密，我们不运营任何节点、不接触任何终端内容。</span
+                >不会经过我们的服务器——我们根本没有服务器。中继进程跑在你自己的 VPS
+                上。加密现状如实说：隧道目前是 TCP + token 鉴权，链路 TLS 在 W1.5 提供；中继是转发者，
+                架构上能看到流经的流量，但我们不做任何记录、不落盘。</span
               >
             </div>
             <div class="faq__item">
