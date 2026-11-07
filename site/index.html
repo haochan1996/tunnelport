@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tunnelport — 一条命令，把 VPS 变成手机的入口</title>
+    <meta
+      name="description"
+      content="tunnelport 把已有的 VPS 变成 Orca 手机端的稳定入口。不用配 frp，不用管端口和 IP；连不上时 tp doctor 直接告诉你卡在五段链路的哪一段。中继跑在你自己的机器上。"
+    />
+    <meta name="color-scheme" content="light" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="tunnelport — 一条命令，把 VPS 变成手机的入口" />
+    <meta
+      property="og:description"
+      content="自托管 TCP 隧道，中继在你自己机器上。断线自动重连，tp doctor 五段诊断说清卡在哪一环。"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23101614'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='17' font-weight='700' fill='%23E0A62B' text-anchor='middle'%3Etp%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到正文</a>
+
+    <header class="top">
+      <div class="wrap top__in">
+        <div class="brand">
+          <span class="brand__mark">tp</span>
+          <span class="brand__name">tunnelport</span>
+          <span class="sticker">MVP 开发中</span>
+        </div>
+        <nav class="top__nav" aria-label="站内导航">
+          <a href="#how">为什么</a>
+          <a href="#doctor">诊断</a>
+          <a href="#price">定价</a>
+          <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ---------------------------------------------------------- hero -->
+      <section class="hero">
+        <div class="wrap hero__grid">
+          <div class="hero__copy">
+            <p class="label">自托管 TCP 隧道</p>
+            <h1>一条命令<br />把 VPS 变成手机的入口</h1>
+            <p class="lede">
+              不用配 frp，不用管端口和 IP。断线自动重连，重启自动恢复。连不上时
+              <code>tp doctor</code> 逐段判定，直接告诉你卡在哪一环。
+            </p>
+            <div class="cta">
+              <a class="btn btn--primary" href="https://github.com/haochan1996/tunnelport"
+                >在 GitHub 关注发布</a
+              >
+              <a class="btn btn--ghost" href="#doctor">先看五段诊断</a>
+            </div>
+            <p class="note">还没有可下载的版本。第一个可用的 tag 计划在 4 周内发布。</p>
+          </div>
+
+          <div class="readout" aria-hidden="true">
+            <div class="readout__row readout__row--ok">
+              <span class="readout__seg">A</span>
+              <span class="readout__name">本地服务</span>
+              <span class="readout__mark">✔</span>
+              <span class="readout__val">127.0.0.1:6768</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__seg">B</span>
+              <span class="readout__name">中继可达</span>
+              <span class="readout__mark">✔</span>
+              <span class="readout__val">47.98.12.34:30123　38ms</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__seg">C</span>
+              <span class="readout__name">鉴权</span>
+              <span class="readout__mark">✔</span>
+              <span class="readout__val">noise + PSK</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__seg">D</span>
+              <span class="readout__name">隧道</span>
+              <span class="readout__mark">✔</span>
+              <span class="readout__val">rtt 41ms　丢包 0.2%</span>
+            </div>
+            <div class="readout__row readout__row--fail">
+              <span class="readout__seg">E</span>
+              <span class="readout__name">外部可达</span>
+              <span class="readout__mark">✘</span>
+              <span class="readout__val">手机 4G 打不开 /health</span>
+            </div>
+            <div class="readout__row readout__row--skip">
+              <span class="readout__seg"></span>
+              <span class="readout__name">结论</span>
+              <span class="readout__mark">–</span>
+              <span class="readout__val">公网 IP 变了，需要 DDNS</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------- promises -->
+      <section class="promises" aria-labelledby="promises-h">
+        <div class="wrap">
+          <h2 id="promises-h">三个承诺</h2>
+          <div class="rows">
+            <div class="row">
+              <span class="row__idx">01</span>
+              <span class="row__key">一条命令</span>
+              <span class="row__val">安装即用，中继配置、token、端口映射全自动生成。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx">02</span>
+              <span class="row__key">不用管端口和 IP</span>
+              <span class="row__val"
+                >自动检测公网连通性、自动挑一个未被占用的端口、自动输出可复制的地址和二维码。</span
+              >
+            </div>
+            <div class="row">
+              <span class="row__idx">03</span>
+              <span class="row__key">一眼看出哪一环</span>
+              <span class="row__val"
+                ><code>tp doctor</code> 把本地 → 中继 → 鉴权 → 隧道 → 外部五段逐项判定，每项给一句人话和一个动作。</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- why -->
+      <section class="section" id="how" aria-labelledby="how-h">
+        <div class="wrap">
+          <p class="label">为什么需要它</p>
+          <h2 id="how-h">四条现成的路，都不好用</h2>
+          <p class="intro">
+            Orca 手机端连桌面只有两条官方路径：境外 Relay 和同网络直连。你手里的 VPS
+            本来就能当入口，但要自己配 frp、处理防火墙、DDNS、断线重连 —— 绝大多数人卡在这一步，或者配完三天后坏了不知道怎么修。
+          </p>
+          <div class="rows">
+            <div class="row">
+              <span class="row__idx">01</span>
+              <span class="row__key">官方 Relay</span>
+              <span class="row__val">接入点在境外，大陆经常超时或 DNS 被污染。慢、常断、不可控。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx">02</span>
+              <span class="row__key">手写 frp 配置</span>
+              <span class="row__val">端口、token、TLS、自启、日志全要自己搞，一处漏了就整条链断。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx">03</span>
+              <span class="row__key">ssh -R 临时隧道</span>
+              <span class="row__val">断线不恢复，重启就没了，不适合"打开就自动连"的日常使用。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx">04</span>
+              <span class="row__key">Tailscale</span>
+              <span class="row__val">控制面在境外，4G 下经常退回境外 DERP，延迟不可预测。</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------- doctor -->
+      <section class="band" id="doctor" aria-labelledby="doctor-h">
+        <div class="wrap">
+          <p class="label">核心功能</p>
+          <h2 id="doctor-h">坏的时候，让它自己说出原因</h2>
+          <p class="intro">
+            五段链路，逐项判定。前一段失败，后面的段直接标记跳过 —— 不猜、不伪造通过。每一项只输出三件事：一句事实、一句人话、一个动作。
+          </p>
+          <div class="term" role="img" aria-label="tp doctor 输出示例：本地服务通过，中继不可达，后续段跳过，结论为安全组未放行">
+            <span class="term__line"><span class="term__prompt">$</span> tp doctor</span>
+            <span class="term__line"> </span>
+            <span class="term__line">A 本地服务    <span class="term__ok">✔</span> Orca 在 127.0.0.1:6768</span>
+            <span class="term__line">B 中继可达    <span class="term__fail">✘</span> 连不上 1.2.3.4:30123</span>
+            <span class="term__line">             <span class="term__hint">→ 检查云厂商安全组 / 防火墙是否放行 TCP 30123</span></span>
+            <span class="term__line">C 鉴权        <span class="term__dim">– 跳过（B 失败）</span></span>
+            <span class="term__line">D 隧道        <span class="term__dim">– 跳过</span></span>
+            <span class="term__line">E 外部可达    <span class="term__ok">✔</span> 出口 1.2.3.4 与入口一致</span>
+            <span class="term__line"> </span>
+            <span class="term__line term__verdict">结论：中继端口不通，最可能是安全组没放行。</span>
+          </div>
+          <p class="note">
+            外部那一环由手机判定：中继额外暴露一个只回状态的 <code>/health</code>，用 4G
+            打开就知道手机到底能不能连上。
+          </p>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------ install -->
+      <section class="section" id="install" aria-labelledby="install-h">
+        <div class="wrap">
+          <p class="label">安装</p>
+          <h2 id="install-h">发布后，两条命令</h2>
+          <p class="intro">
+            中继装在 VPS 上，客户端装在跑 Orca 的桌面机或家里 NAS 上。二进制自带
+            rathole，不需要另外装依赖。
+          </p>
+          <div class="cards2">
+            <div>
+              <div class="plat">
+                <span class="plat__name">VPS · 起中继</span>
+                <span class="plat__tag">serve</span>
+              </div>
+              <div class="cmd">
+                <span class="cmd__line cmd__line--comment"># 输出 地址 / token / 二维码</span>
+                <span class="cmd__line">tp serve</span>
+              </div>
+            </div>
+            <div>
+              <div class="plat">
+                <span class="plat__name">桌面机 · 连中继</span>
+                <span class="plat__tag">connect</span>
+              </div>
+              <div class="cmd">
+                <span class="cmd__line cmd__line--comment"># 映射本地 6768 到入口</span>
+                <span class="cmd__line">tp connect --token &lt;t&gt;</span>
+              </div>
+            </div>
+          </div>
+          <div class="install__foot">
+            <button class="btn btn--primary" type="button" disabled>
+              下载二进制 · 未发布
+            </button>
+            <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/releases"
+              >查看 Release 记录</a
+            >
+            <span class="note">macOS · Windows · 主流 Linux · Docker，x86_64 与 arm64</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------- price -->
+      <section class="section section--tight" id="price" aria-labelledby="price-h">
+        <div class="wrap">
+          <p class="label">定价</p>
+          <h2 id="price-h">功能不阉割，只差设备数</h2>
+          <p class="intro">
+            免费版和付费版功能完全一致，自动更新也包含在内。付费只差两件事：能配对几台设备、支持多快响应。
+          </p>
+          <div class="price">
+            <div class="price__row">
+              <span class="price__name">免费</span>
+              <span class="price__amount">¥0</span>
+              <span class="price__desc">1 对设备，全部功能含自动更新。</span>
+            </div>
+            <div class="price__row">
+              <span class="price__name">标准</span>
+              <span class="price__amount">¥99 / 年</span>
+              <span class="price__desc">5 对设备，邮件支持 48 小时内响应，协议变化优先适配。</span>
+            </div>
+            <div class="price__row">
+              <span class="price__name">一次性配置</span>
+              <span class="price__amount">¥199</span>
+              <span class="price__desc">远程帮你装好，含 30 天答疑。不想碰命令行的人买这个。</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- faq -->
+      <section class="section" id="faq" aria-labelledby="faq-h">
+        <div class="wrap">
+          <p class="label">常见问题</p>
+          <h2 id="faq-h">先把边界说清楚</h2>
+          <div class="faq">
+            <div class="faq__item">
+              <span class="faq__q">需要自己有 VPS 吗？</span>
+              <span class="faq__a"
+                >需要。而且这个 VPS 必须能放行入站端口 —— 云厂商安全组这一关要你自己过，<code>tp doctor</code>
+                会明确告诉你去哪个端口上放行。</span
+              >
+            </div>
+            <div class="faq__item">
+              <span class="faq__q">家里 NAS 没有公网 IP，能当入口吗？</span>
+              <span class="faq__a"
+                >不能。没有公网 IP 的机器只能当客户端。<code>tp serve</code>
+                会在启动时先判定 CGNAT 并直接告诉你"无法被外部连接"，不会让你白等。</span
+              >
+            </div>
+            <div class="faq__item">
+              <span class="faq__q">我的数据会经过你们的服务器吗？</span>
+              <span class="faq__a"
+                >不会，我们没有服务器。中继进程跑在你自己的 VPS 上，隧道是 TCP 转发加 noise
+                加密，我们不运营任何节点、不接触任何终端内容。</span
+              >
+            </div>
+            <div class="faq__item">
+              <span class="faq__q">能不能用来翻墙？</span>
+              <span class="faq__a"
+                >不能，也不做。产品只转发你自己的设备到你自有机器的 TCP 端口，没有多跳、没有出口
+                NAT、不服务跨境路径。这类用途请另找工具，我们不提供也不支持。</span
+              >
+            </div>
+            <div class="faq__item">
+              <span class="faq__q">为什么不用 Tailscale 或 frp 自己配？</span>
+              <span class="faq__a"
+                >能自己配得很稳的人确实不需要这个产品。它卖的不是"能连"，是"三分钟配好"和"坏了能自己诊断"
+                —— 如果你的时间成本低于这个价，用自己的方案是对的。</span
+              >
+            </div>
+            <div class="faq__item">
+              <span class="faq__q">现在能下载吗？</span>
+              <span class="faq__a"
+                >还不能。MVP 正在开发，规格已定稿并公开在仓库里。点 GitHub 上的 Watch
+                可以在第一个 tag 发布时收到通知。</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="foot__in">
+          <span class="brand">
+            <span class="brand__mark">tp</span>
+            <span class="brand__name">tunnelport</span>
+          </span>
+          <div class="foot__links">
+            <a href="https://github.com/haochan1996/tunnelport">GitHub</a>
+            <a href="https://github.com/haochan1996/tunnelport/releases">Releases</a>
+          </div>
+        </div>
+        <p class="foot__legal">
+          tunnelport 是本地软件，不是平台服务。我们不运营中继节点、不承载他人流量、不存储任何终端内容。仅限自有设备间的合法远程访问，不用于任何跨境或规避性用途。
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
