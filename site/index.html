@@ -34,6 +34,7 @@
         <nav class="top__nav" aria-label="站内导航">
           <a href="#how">为什么</a>
           <a href="#doctor">诊断</a>
+          <a href="#verify">验证</a>
           <a href="#price">定价</a>
           <a href="#install">下载</a>
           <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport">GitHub</a>
@@ -188,6 +189,96 @@
             外部那一环由手机判定：中继额外暴露一个只回状态的 <code>/health</code>，用 4G
             打开就知道手机到底能不能连上。
           </p>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------- verify -->
+      <section class="section" id="verify" aria-labelledby="verify-h">
+        <div class="wrap">
+          <p class="label">验证记录 · 2026-11-08</p>
+          <h2 id="verify-h">测过的公开，没测过的不装</h2>
+          <p class="intro">
+            MVP 还没发布，但我们把每一次验证的结果写在这里。下面全部是真实测试，不是承诺；测不了的如实列出。
+          </p>
+
+          <p class="verify-h">已验证</p>
+          <div class="rows">
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">单机全链路隧道</span>
+              <span class="row__val">serve 起中继 → connect 连入 → HTTP 请求穿透拿到真实响应。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">跨机全链路隧道</span>
+              <span class="row__val">一台机器 Docker 部署中继，另一台机器连入，穿透往返实测 RTT 3ms。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">Docker 一键部署</span>
+              <span class="row__val">TP_ROLE / TP_PORT 两个环境变量，容器启动即输出地址、token 和二维码。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">外部可达自检</span>
+              <span class="row__val">健康端点实测可用：手机浏览器打开 <code>/health</code> 即验最后一环，不需要任何后端。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">五段诊断 A/B 段</span>
+              <span class="row__val">本地端口探测与中继可达（含 RTT）实测准确，坏中继能定位到安全组。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">配对安全</span>
+              <span class="row__val">状态目录零明文 token；错误 token 只说「重新复制」，不吐堆栈。</span>
+            </div>
+          </div>
+
+          <p class="verify-h">实测发现并已修复</p>
+          <div class="rows">
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--fix"></span></span>
+              <span class="row__key">隧道引擎配置格式</span>
+              <span class="row__val">rathole v0.5.0 的配置格式与主分支文档不一致 —— 已按 tag 源码对齐，并固定版本。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--fix"></span></span>
+              <span class="row__key">安全软件拦截</span>
+              <span class="row__val">实测国产杀软会静默删除隧道引擎文件 —— tp 已能识别并给出白名单指引。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--fix"></span></span>
+              <span class="row__key">引擎报错不可见</span>
+              <span class="row__val">子进程错误曾被吞掉 —— 现已落盘成日志，坏的时候有据可查。</span>
+            </div>
+          </div>
+
+          <p class="verify-h">尚未验证</p>
+          <div class="rows">
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--todo"></span></span>
+              <span class="row__key">手机真机连接</span>
+              <span class="row__val">待在真机 Orca 环境里验证完整配对流程。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--todo"></span></span>
+              <span class="row__key">公网入口的外部可达</span>
+              <span class="row__val">当前测试都在内网环境；待公网 VPS 上验证外部链路。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--todo"></span></span>
+              <span class="row__key">断线恢复与自启</span>
+              <span class="row__val">拔线 30s 自动恢复、三平台开机自启，W2 验证。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--todo"></span></span>
+              <span class="row__key">Windows 与 macOS 端到端</span>
+              <span class="row__val">当前 Linux 先行；桌面双端在 W2 补齐。</span>
+            </div>
+          </div>
+
+          <p class="note">测试环境：Debian 12 · Docker 28 · WSL2 Ubuntu · rathole 0.5.0 · tp v0.1.0-dev。命令与完整输出在仓库测试记录中，可复查。</p>
         </div>
       </section>
 

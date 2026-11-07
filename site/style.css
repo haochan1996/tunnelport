@@ -565,6 +565,43 @@ a:focus-visible {
   color: var(--amber-d);
 }
 
+/* --------------------------------------------------------- verify ------ */
+
+.verify-h {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  font-weight: 600;
+  color: var(--ink-2);
+  margin: var(--s6) 0 var(--s2);
+}
+
+.rows + .verify-h {
+  margin-top: var(--s5);
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.dot--pass {
+  background: var(--pass);
+}
+
+.dot--fix {
+  background: var(--amber);
+}
+
+.dot--todo {
+  background: var(--paper);
+  border: 1px solid var(--ink-3);
+}
+
+/* --------------------------------------------------------- verify end --- */
+
 /* -------------------------------------------------------- install ------- */
 
 .cmd {
