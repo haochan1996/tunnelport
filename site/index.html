@@ -230,6 +230,11 @@
             </div>
             <div class="row">
               <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">优雅退出</span>
+              <span class="row__val">SIGTERM / 容器停止后，tp 与隧道引擎同步退出——无孤儿进程、端口即释。NAS 上 <code>restart=always</code> 依赖这一点。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
               <span class="row__key">配对安全</span>
               <span class="row__val">状态目录零明文 token；错误 token 只说「重新复制」，不吐堆栈。</span>
             </div>
