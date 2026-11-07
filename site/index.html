@@ -233,6 +233,16 @@
               <span class="row__key">配对安全</span>
               <span class="row__val">状态目录零明文 token；错误 token 只说「重新复制」，不吐堆栈。</span>
             </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">链路 TLS 加密</span>
+              <span class="row__val">隧道已默认 TLS：证书自动生成，指纹随配对码携带，不匹配即中止并提示中间人。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">端到端加密模式</span>
+              <span class="row__val">手机到桌面全程 TLS，中继只见密文。已在内网实测穿透；待手机真机验证 <code>https://</code> 支持。</span>
+            </div>
           </div>
 
           <p class="verify-h">实测发现并已修复</p>
@@ -251,6 +261,11 @@
               <span class="row__idx"><span class="dot dot--fix"></span></span>
               <span class="row__key">引擎报错不可见</span>
               <span class="row__val">子进程错误曾被吞掉 —— 现已落盘成日志，坏的时候有据可查。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--fix"></span></span>
+              <span class="row__key">代理网络的入口检测</span>
+              <span class="row__val">实测软路由/代理环境下，出口 IP 自动检测返回的是代理地址 —— 已支持显式指定入口地址。</span>
             </div>
           </div>
 
@@ -377,8 +392,7 @@
               <span class="faq__q">我的数据会经过你们的服务器吗？</span>
               <span class="faq__a"
                 >不会经过我们的服务器——我们根本没有服务器。中继进程跑在你自己的 VPS
-                上。加密现状如实说：隧道目前是 TCP + token 鉴权，链路 TLS 在 W1.5 提供；中继是转发者，
-                架构上能看到流经的流量，但我们不做任何记录、不落盘。</span
+                上。加密现状：隧道链路已默认 TLS 加密（自签证书 + 指纹防中间人），并提供端到端模式——手机到桌面全程加密，中继只见密文。即便如此，我们依然不做任何记录与落盘。</span
               >
             </div>
             <div class="faq__item">
