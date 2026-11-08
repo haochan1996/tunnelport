@@ -306,32 +306,36 @@
       <section class="section" id="install" aria-labelledby="install-h">
         <div class="wrap">
           <p class="label">安装</p>
-          <h2 id="install-h">三步连通，不需要懂网络</h2>
+          <h2 id="install-h">下载两个软件，粘贴一个地址，扫一个码</h2>
           <p class="intro">
-            VPS 一条命令自动完成下载、安装、开机自启；电脑上运行一次连接命令；
-            手机扫 Orca 生成的二维码即连。
+            没有配置文件、没有命令行脚本。桌面端是图形界面软件，双击即用。
           </p>
-          <div class="cmd">
-            <span class="cmd__line cmd__line--comment"># ① VPS 上（自动下载安装 + 开机自启 + 出地址）</span>
-            <span class="cmd__line">curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh</span>
-          </div>
           <div class="rows">
             <div class="row">
+              <span class="row__idx">①</span>
+              <span class="row__key">VPS 装服务端</span>
+              <span class="row__val">下载 <code>tp</code>（Linux）上传到 VPS 运行 <code>tp serve</code>，输出地址与配对链接。</span>
+            </div>
+            <div class="row">
               <span class="row__idx">②</span>
-              <span class="row__key">电脑连接</span>
-              <span class="row__val">从 Releases 下载 tp（约 9MB），运行 <code>tp connect &lt;配对链接&gt;</code>，保持运行。</span>
+              <span class="row__key">电脑装桌面端</span>
+              <span class="row__val">下载 <code>tunnelport</code> 图形界面软件（Windows / macOS / Linux），双击打开，粘贴配对链接即连接。</span>
             </div>
             <div class="row">
               <span class="row__idx">③</span>
               <span class="row__key">手机配对</span>
-              <span class="row__val">入口地址粘贴到 Orca 桌面端「自定义网络地址」→ Set up Mobile → 手机扫码即连。</span>
+              <span class="row__val">入口地址粘贴到 Orca「自定义网络地址」→ Set up Mobile → 手机扫码即连。</span>
             </div>
           </div>
           <div class="install__foot">
-            <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/releases">下载 tp（电脑端）</a>
+            <a class="btn btn--primary" href="https://github.com/haochan1996/tunnelport/releases">下载桌面端软件</a>
+            <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/releases">下载服务端 tp</a>
             <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/blob/main/docs/GUIDE.md">完整指南</a>
-            <span class="note">macOS · Windows · Linux · Docker</span>
           </div>
+          <p class="note">
+            命令行工具与 Docker 部署见指南「进阶」部分；桌面端软件 = tunnelport（GUI），
+            服务端 = tp（单文件）。
+          </p>
         </div>
       </section>
 
