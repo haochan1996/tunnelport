@@ -230,6 +230,11 @@
             </div>
             <div class="row">
               <span class="row__idx"><span class="dot dot--pass"></span></span>
+              <span class="row__key">手机 4G 真机验收</span>
+              <span class="row__val">真实蜂窝网络访问公网入口的健康端点，返回 <code>OK rtt=… tls=tls</code>——外部可达与加密链路双双确认。</span>
+            </div>
+            <div class="row">
+              <span class="row__idx"><span class="dot dot--pass"></span></span>
               <span class="row__key">优雅退出</span>
               <span class="row__val">SIGTERM / 容器停止后，tp 与隧道引擎同步退出——无孤儿进程、端口即释。NAS 上 <code>restart=always</code> 依赖这一点。</span>
             </div>
@@ -278,13 +283,8 @@
           <div class="rows">
             <div class="row">
               <span class="row__idx"><span class="dot dot--todo"></span></span>
-              <span class="row__key">手机真机连接</span>
-              <span class="row__val">待在真机 Orca 环境里验证完整配对流程。</span>
-            </div>
-            <div class="row">
-              <span class="row__idx"><span class="dot dot--todo"></span></span>
-              <span class="row__key">公网入口的外部可达</span>
-              <span class="row__val">当前测试都在内网环境；待公网 VPS 上验证外部链路。</span>
+              <span class="row__key">手机 Orca 扫码配对</span>
+              <span class="row__val">外部可达已验收；待真机 Orca 完整配对流程（地址粘贴 → 扫码）。</span>
             </div>
             <div class="row">
               <span class="row__idx"><span class="dot dot--todo"></span></span>
