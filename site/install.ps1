@@ -5,6 +5,7 @@
 #
 # 自动完成：下载 → 安装到用户目录（无需管理员）→ 注册开机自启（计划任务）→ 打印地址。
 # 环境变量：TP_VERSION（默认 v0.1.0）、TP_URL（connect 模式的配对链接）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
 $version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v0.1.0" }
