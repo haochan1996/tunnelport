@@ -60,8 +60,6 @@ jobs:
       - name: Publish to public repo
         uses: softprops/action-gh-release@v2
         with:
-          repository: haochan1996/tunnelport
-          token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           draft: true
