@@ -1,0 +1,210 @@
+# tunnelport 部署与使用指南
+
+> 适用版本：v0.1.x（MVP）。本文所有命令均经过真实验证；占位符一律写成
+> `YOUR_VPS_IP` / `<token>` 等形式，使用时替换为你自己的值。
+>
+> 阅读前提：了解[部署拓扑](README.md#部署拓扑30-秒看懂)——入口（serve）跑在有公网
+> IP 的机器上，客户端（connect）跑在 Orca 所在的机器上。
+
+---
+
+## 目录
+
+1. [准备工作](#1-准备工作)
+2. [部署入口：tp serve](#2-部署入口tp-serve)
+3. [部署客户端：tp connect](#3-部署客户端tp-connect)
+4. [手机 Orca 配置](#4-手机-orca-配置)
+5. [日常使用](#5-日常使用)
+6. [故障排查：tp doctor 与 tp logs](#6-故障排查)
+7. [常见问题](#7-常见问题)
+8. [安全注意事项](#8-安全注意事项)
+
+---
+
+## 1. 准备工作
+
+### 1.1 你需要什么
+
+| 项 | 要求 | 说明 |
+|---|---|---|
+| 一台有公网 IP 的服务器 | 国内 VPS / 轻量服务器，1核1G 即可 | 入口（serve）。无 CGNAT、防火墙可放行端口 |
+| 跑 Orca 的机器 | 桌面机或 NAS（Docker） | 客户端（connect） |
+| 手机 | 已安装 Orca | 最终消费端 |
+
+### 1.2 端口规划（基座三连）
+
+tp 使用**三个连续端口**，由 `--port-base` 一次性确定：
+
+| 端口 | 用途 | 谁会连 |
+|---|---|---|
+| `30123`（base） | 控制通道（TLS + token） | 只有你自己的 connect 拨入 |
+| `30124`（base+1） | Orca 服务口 | 手机 Orca |
+| `30125`（base+2） | 健康检查口 | 手机浏览器（自检用） |
+
+**防火墙/安全组放行 `30123-30125` 一段 TCP 即可。**
+
+- 指定 `--port-base N` 后，若 N~N+2 被占用，tp 会**报错而不是擅自换端口**——
+  因为你可能已经按这段放行了防火墙
+- 不指定则自动寻找三连空闲端口，并把实际端口写进配对码
+
+### 1.3 下载
+
+从 [Releases](https://github.com/haochan1996/tunnelport/releases) 下载对应平台的
+`tp_<os>_<arch>`，校验 `SHA256SUMS`；隧道引擎 rathole 单独下载：
+
+```sh
+# Linux x86_64
+curl -LO https://github.com/rathole-org/rathole/releases/download/v0.5.0/rathole-x86_64-unknown-linux-gnu.zip
+unzip rathole-x86_64-unknown-linux-gnu.zip
+```
+
+---
+
+## 2. 部署入口：tp serve
+
+### 2.1 方式一：Docker（推荐）
+
+```sh
+docker run -d --name tp-serve --restart unless-stopped \
+  -e TP_ROLE=serve \
+  -e TP_PORT_BASE=30123 \
+  -e TP_TOKEN=<你的52位token，留空则自动生成> \
+  -p 30123-30125:30123-30125 \
+  -v tp-state:/root/.tunnelport \
+  ghcr.io/haochan1996/tunnelport:<tag>
+```
+
+> 镜像随 Release 自动发布。正式 tag 发布前可先用二进制方式（2.2）。
+
+查看输出的地址、token 与二维码：
+
+```sh
+docker logs tp-serve
+```
+
+### 2.2 方式二：二进制
+
+```sh
+./tp-linux serve --bind 0.0.0.0 --port-base 30123 --rathole ./rathole
+```
+
+### 2.3 serve 启动后你会看到
+
+```
+ 中继已启动  v0.1.0
+
+ 入口地址（手机 Orca 填这个）
+   YOUR_VPS_IP:30124
+
+ token（连电脑时用，仅显示这一次）
+   <52位大写字母和数字>
+
+ 证书指纹: xxxx-xxxx-xxxx
+
+ 下一步
+   电脑上执行:
+     tp connect --token <token> --host YOUR_VPS_IP
+
+ ⚠ 记得在防火墙放行 TCP: 30123-30125（连续三端口）
+```
+
+**把配对链接/二维码保存好**——它包含 token 与证书指纹，是唯一的配对凭证。
+
+---
+
+## 3. 部署客户端：tp connect
+
+在跑 Orca 的机器上（桌面机或 NAS Docker）：
+
+```sh
+# 用配对链接（推荐，自动携带全部端口与证书指纹）
+tp connect "tunnelport://REDACTED
+
+# 或纯 token + 显式地址
+tp connect --token <token> --host YOUR_VPS_IP --port 30123
+```
+
+代理/软路由网络下，配对码里的地址可能不是真实公网地址——用 `--host` 覆盖。
+
+客户端常驻后台：断线自动重连（1s→30s 退避），无需人工干预。
+
+---
+
+## 4. 手机 Orca 配置
+
+在 Orca 的「自定义网络地址」里填入口地址：
+
+| 模式 | 填写内容 | 说明 |
+|---|---|---|
+| 标准 | `YOUR_VPS_IP:30124` | IP:端口 形式 |
+| 端到端加密 | `https://YOUR_VPS_IP:30124` | TLS 直达你的桌面，中继只见密文（需手机端接受自签证书，待真机验证） |
+
+**验证外部可达**：手机**关掉 Wi-Fi 用 4G**，浏览器打开
+`http://YOUR_VPS_IP:30125/health`——看到 `OK rtt=…ms` 即全链路通畅。
+
+---
+
+## 5. 日常使用
+
+| 命令 | 作用 |
+|---|---|
+| `tp status` | 当前角色、入口地址、token 指纹 |
+| `tp doctor` | 五段诊断（连不上时跑这个） |
+| `tp logs -f` | 跟踪引擎日志 |
+
+日常使用是**零操作**的：客户端常驻后台自动重连，手机打开 Orca 即用。
+
+---
+
+## 6. 故障排查
+
+连不上时按顺序执行：
+
+```sh
+tp doctor          # 在客户端所在机器运行
+tp logs -n 50      # 看引擎最近日志
+```
+
+五段诊断输出示例与解读：
+
+| 段 | 检查什么 | 失败时最常见原因 |
+|---|---|---|
+| A 本地服务 | Orca 是否在监听 6768 | Orca 没启动 |
+| B 中继可达 | 能否连上服务器控制端口 | 防火墙没放行 30123 |
+| C 鉴权 | token 是否匹配 | 配对码复制不完整 |
+| D 隧道 | 隧道数据通道 | 线路抖动，等待自动重连 |
+| E 外部可达 | 手机能否从外网访问 | 服务器 IP 变了 / 防火墙拦截 |
+
+某段失败时，后续段标记 `– 跳过`——按第一个失败段的提示处理即可。
+
+---
+
+## 7. 常见问题
+
+**Q：Orca 用了非 6768 端口？**
+客户端加 `--local-port <端口>`。
+
+**Q：VPS 上端口被别的程序占了？**
+`tp serve` 会自动顺延到可用端口并明确提示手机应填的新地址；也可用
+`--public-port` / `--health-port` / `--port-base` 主动指定。
+
+**Q：服务器重启后需要重新运行吗？**
+Docker 用 `--restart unless-stopped`；裸机部署配合 systemd（见下）。token
+与证书持久化在状态目录，重启后自动恢复。
+
+**Q：换服务器 / 重新 serve 之后手机连不上了？**
+每次 `tp serve` 会生成新 token 与新证书。重新配对：客户端断开，重扫新配对码。
+
+**Q：数据安全吗？**
+隧道链路 TLS 加密；端到端模式下中继只见密文。我们不运营任何节点、
+不记录任何内容——详见站点 FAQ。
+
+---
+
+## 8. 安全注意事项
+
+1. **只放行这三个端口**，不要把 SSH/管理界面暴露到公网
+2. 服务器 SSH 建议**密钥登录 + 禁用密码 + fail2ban**（公网机器每天都会被爆破）
+3. token = 唯一配对凭证：泄露后任何人都能连你的入口。疑似泄露时重新 `tp serve`
+   生成新 token，并重新配对客户端
+4. 日志已自动脱敏：不含 token 明文与终端内容
