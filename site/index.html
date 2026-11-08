@@ -306,44 +306,35 @@
       <section class="section" id="install" aria-labelledby="install-h">
         <div class="wrap">
           <p class="label">安装</p>
-          <h2 id="install-h">发布后，两条命令</h2>
+          <h2 id="install-h">三步连通，不需要懂网络</h2>
           <p class="intro">
-            中继装在 VPS 上，客户端装在跑 Orca 的桌面机或家里 NAS 上。二进制自带
-            rathole，不需要另外装依赖。
+            VPS 一条命令自动完成下载、安装、开机自启；电脑上运行一次连接命令；
+            手机扫 Orca 生成的二维码即连。
           </p>
-          <div class="cards2">
-            <div>
-              <div class="plat">
-                <span class="plat__name">VPS · 起中继</span>
-                <span class="plat__tag">serve</span>
-              </div>
-              <div class="cmd">
-                <span class="cmd__line cmd__line--comment"># VPS 一键部署：自动装 + 开机自启 + 出地址</span>
-                <span class="cmd__line">curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh</span>
-              </div>
+          <div class="cmd">
+            <span class="cmd__line cmd__line--comment"># ① VPS 上（自动下载安装 + 开机自启 + 出地址）</span>
+            <span class="cmd__line">curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh</span>
+          </div>
+          <div class="rows">
+            <div class="row">
+              <span class="row__idx">②</span>
+              <span class="row__key">电脑连接</span>
+              <span class="row__val">从 Releases 下载 tp（约 9MB），运行 <code>tp connect &lt;配对链接&gt;</code>，保持运行。</span>
             </div>
-            <div>
-              <div class="plat">
-                <span class="plat__name">桌面机 · 连中继</span>
-                <span class="plat__tag">connect</span>
-              </div>
-              <div class="cmd">
-                <span class="cmd__line cmd__line--comment"># 地址粘贴进 Orca 后，手机扫 Orca 生成的二维码即连</span>
-                <span class="cmd__line">tp connect &lt;配对链接&gt;</span>
-              </div>
+            <div class="row">
+              <span class="row__idx">③</span>
+              <span class="row__key">手机配对</span>
+              <span class="row__val">入口地址粘贴到 Orca 桌面端「自定义网络地址」→ Set up Mobile → 手机扫码即连。</span>
             </div>
           </div>
           <div class="install__foot">
-            <button class="btn btn--primary" type="button" disabled>
-              下载二进制 · 未发布
-            </button>
-            <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/releases"
-              >查看 Release 记录</a
-            >
-            <span class="note">macOS · Windows · 主流 Linux · Docker，x86_64 与 arm64</span>
+            <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/releases">下载 tp（电脑端）</a>
+            <a class="btn btn--ghost" href="https://github.com/haochan1996/tunnelport/blob/main/docs/GUIDE.md">完整指南</a>
+            <span class="note">macOS · Windows · Linux · Docker</span>
           </div>
         </div>
       </section>
+
 
       <!-- ------------------------------------------------------ donate -->
       <section class="section section--tight" id="donate" aria-labelledby="donate-h">
