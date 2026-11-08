@@ -14,6 +14,8 @@
 
 ## 第一层：代码签名（治本，免费路径）
 
+> **详细申请手册见 [SIGNING.md](SIGNING.md)**（含可直接粘贴的申请文案 + 4 个 Secrets 配置表）。
+
 **SignPath 为开源项目提供免费代码签名**（EV 级信任，签完 Windows SmartScreen /
 多数杀软直接放行）：
 

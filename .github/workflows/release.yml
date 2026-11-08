@@ -90,14 +90,52 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ghcr.io/${{ github.repository }}:latest
 
-  release:
+  # SignPath 开源签名（docs/SIGNING.md）：配好 SIGNPATH_* secrets 后自动启用
+  sign:
     needs: build
+    runs-on: ubuntu-latest
+    env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: actions/upload-artifact@v4
+        id: unsigned
+        with:
+          name: unsigned-windows
+          path: dist/*windows*
+      - name: Submit to SignPath
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - name: Upload signed artifacts
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows
+          path: signed/
+
+  release:
+    needs: [build, sign]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      - name: Prefer signed Windows binaries
+        run: |
+          if [ -d signed ]; then cp -f signed/* dist/ 2>/dev/null || true; fi
+          ls dist/
       - name: SHA256SUMS
         run: |
           cd dist
