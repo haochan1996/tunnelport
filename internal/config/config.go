@@ -27,6 +27,10 @@ type State struct {
 // Dir 返回状态目录（~/.tunnelport），不存在则创建。
 // 鲁棒性：systemd/容器/cron 环境常无 $HOME —— 回退 passwd 主目录，再回退 /var/lib/tunnelport。
 func Dir() (string, error) {
+	// TP_CONFIG_DIR 显式指定（systemd 服务与普通用户共读同一份 token，v1.5）
+	if d := os.Getenv("TP_CONFIG_DIR"); d != "" {
+		return d, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		if u, err2 := user.Current(); err2 == nil && u.HomeDir != "" {

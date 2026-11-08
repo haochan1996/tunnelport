@@ -88,15 +88,24 @@ PLISTEOF
   launchctl load "$PLIST"
 elif command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   if [ -w /etc/systemd/system ] 2>/dev/null || [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+  # token 落盘到系统目录：任何用户 tp status --show-pairing 都能重打配对链接
+  $SUDO mkdir -p /etc/tunnelport
+  $SUDO chmod 755 /etc/tunnelport
+  DEV_ARGS=""
+  [ -n "${TP_DEVICES:-}" ] && DEV_ARGS=" --devices ${TP_DEVICES}"
   cat > /tmp/tunnelport.service.$$ <<UNIT
 [Unit]
 Description=tunnelport — Orca 稳定入口
 After=network-online.target
 Wants=network-online.target
+# 防崩溃风暴：120s 内最多重启 5 次，超过即停（实测无限重启会刷 56+ 次）
+StartLimitIntervalSec=120
+StartLimitBurst=5
 [Service]
-ExecStart=/usr/local/bin/tp ${ROLE}${CONNECT_URL:+ ${CONNECT_URL}}
+Environment=TP_CONFIG_DIR=/etc/tunnelport
+ExecStart=/usr/local/bin/tp ${ROLE}${CONNECT_URL:+ ${CONNECT_URL}}${DEV_ARGS}
 Restart=always
-RestartSec=3
+RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
@@ -105,7 +114,8 @@ UNIT
   $SUDO systemctl enable --now tunnelport >/dev/null 2>&1
 else
   echo "⚠ 未检测到 systemd/launchd：用后台进程方式启动（重启后需手动重跑）"
-  setsid nohup /usr/local/bin/tp ${ROLE} ${CONNECT_URL} > "$HOME/tunnelport.log" 2>&1 < /dev/null &
+  mkdir -p /etc/tunnelport 2>/dev/null || true
+  TP_CONFIG_DIR=/etc/tunnelport setsid nohup /usr/local/bin/tp ${ROLE} ${CONNECT_URL} > "$HOME/tunnelport.log" 2>&1 < /dev/null &
   SUDO=""
 fi
 
@@ -148,6 +158,10 @@ cat <<'NEXT'
             ② 入口地址粘贴到 Orca 桌面端「自定义网络地址」
             ③ 桌面机运行 tp connect <配对链接>
  connect 模式：地址粘贴进 Orca → Set up Mobile → 手机扫码
+
+ serve 模式：token 已落盘 /etc/tunnelport，任何时候跑
+            tp status --show-pairing 可重打配对链接（任何用户均可）
+ 多台电脑：  TP_DEVICES=N 重跑本脚本可限设备数（每台占 2 个端口）
 
  有问题：tp doctor 会告诉你卡在哪一环。
 ──────────────────────────────────────────────────
