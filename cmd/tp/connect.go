@@ -29,6 +29,7 @@ func connectCmd() *cobra.Command {
 		flagHost      string
 		flagPort      int
 		flagLocal     int
+		flagLocalHost string
 		flagBin       string
 		flagTransport string
 		flagTerm      bool
@@ -42,13 +43,14 @@ func connectCmd() *cobra.Command {
 			if t == "" && len(args) > 0 {
 				t = args[0] // 允许位置参数：tp connect tunnelport://…
 			}
-			return runConnect(t, flagHost, flagPort, flagLocal, flagBin, flagTransport, flagTerm, flagEngine)
+			return runConnect(t, flagHost, flagPort, flagLocal, flagLocalHost, flagBin, flagTransport, flagTerm, flagEngine)
 		},
 	}
 	cmd.Flags().StringVar(&flagToken, "token", os.Getenv("TP_TOKEN"), "token 或完整配对 URL（tunnelport://host:port?fp=证书指纹#token）")
 	cmd.Flags().StringVar(&flagHost, "host", "", "中继地址（用纯 token 时必填）")
 	cmd.Flags().IntVar(&flagPort, "port", envInt("TP_CONTROL_PORT", 0), "中继控制端口（URL 里自带，纯 token 时必填）")
-	cmd.Flags().IntVar(&flagLocal, "local-port", 6768, "本地 Orca 端口")
+	cmd.Flags().IntVar(&flagLocal, "local-port", 6768, "Orca 端口")
+	cmd.Flags().StringVar(&flagLocalHost, "local-host", "127.0.0.1", "Orca 所在地址（默认本机；NAS 场景填电脑的局域网 IP，如 192.168.1.10，实现电脑零安装）")
 	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（engine=rathole 时用）")
 	cmd.Flags().StringVar(&flagEngine, "engine", "native", "隧道引擎：native（默认，自研，杀软无特征）或 rathole")
 	cmd.Flags().StringVar(&flagTransport, "transport", "tls", "隧道传输：tls（默认，D-8）或 tcp（对端旧版本回退）")
@@ -57,7 +59,7 @@ func connectCmd() *cobra.Command {
 	return cmd
 }
 
-func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagBin, flagTransport string, flagTerm bool, flagEngine string) error {
+func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagLocalHost, flagBin, flagTransport string, flagTerm bool, flagEngine string) error {
 	mustStateDir()
 	if tokenArg == "" {
 		return fmt.Errorf("缺少 --token；手机扫码或在 VPS 上运行 tp serve 可获得")
@@ -107,7 +109,7 @@ func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagBin, fla
 		}
 	}
 
-	orcaLocal := net.JoinHostPort("127.0.0.1", strconv.Itoa(flagLocal))
+	orcaLocal := net.JoinHostPort(flagLocalHost, strconv.Itoa(flagLocal))
 
 	// 端到端终结器（用户要求的方向）：本地起 TLS 服务，
 	// 手机 https://入口:端口 → 隧道 → 本地终结 TLS → 明文给 Orca。
