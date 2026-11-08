@@ -426,10 +426,9 @@
             <div class="faq__item">
               <span class="faq__q">Windows 上被杀软拦截 / 删除怎么办？</span>
               <span class="faq__a"
-                >这是隧道类工具的普遍情况：国产杀软对 rathole 这类隧道引擎有专杀特征
-                （frp 等同类工具同理），不是病毒。推荐在 WSL 里运行客户端——杀软不扫 WSL
-                文件系统（实测有效）；或把 rathole 所在目录加入杀软信任区。代码开源，
-                可自行审计。</span
+                >tunnelport 使用自研 Go 隧道引擎——单二进制、无第三方引擎特征，
+                不在任何杀软特征库中，不会被误杀。（rathole / frp 等同类工具被国产杀软
+                专杀是普遍情况；我们为此从根上换掉了引擎。）代码开源，可自行审计。</span
               >
             </div>
             <div class="faq__item">
