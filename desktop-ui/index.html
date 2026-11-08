@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tunnelport · Windows 桌面端</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================================================== titlebar -->
+  <div class="titlebar">
+    <div class="brand">
+      <span class="brand__mark">tp</span>
+      <span class="brand__name">tunnelport</span>
+      <span class="sticker">MVP 开发中</span>
+    </div>
+
+    <nav class="tabs" aria-label="主导航">
+      <button class="tab" data-view="status" aria-current="page">状态</button>
+      <button class="tab" data-view="doctor">诊断 <span class="tab__n">5</span></button>
+      <button class="tab" data-view="logs">日志 <span class="tab__n">128</span></button>
+      <button class="tab" data-view="settings">设置</button>
+    </nav>
+
+    <div class="winctl">
+      <button aria-label="最小化">—</button>
+      <button aria-label="最大化">▢</button>
+      <button class="winctl__close" aria-label="关闭">✕</button>
+    </div>
+  </div>
+
+  <!-- ========================================================== views -->
+  <div class="views">
+
+    <!-- ------------------------------------------------------ 状态 -->
+    <section class="view is-active" id="view-status" aria-label="状态">
+      <div class="view__in">
+        <header class="page-head">
+          <div>
+            <h1 class="status-hero"><span class="dot dot--pass" aria-hidden="true"></span>已连接</h1>
+            <p class="page-meta">3 天 04:12:36 · RTT 41 ms · 24 h 内重连 0 次 · 托盘运行中</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn--ghost" data-goto="doctor">重新诊断</button>
+            <button class="btn btn--primary">暂停隧道</button>
+          </div>
+        </header>
+
+        <div class="entry on-dark">
+          <span class="entry__k">入口地址 · 粘贴进 Orca</span>
+          <span class="entry__v">47.98.203.17:30123</span>
+          <span class="entry__actions">
+            <button class="btn btn--ghost" data-copy="47.98.203.17:30123">复制</button>
+            <button class="btn btn--ghost" id="open-qr">二维码</button>
+          </span>
+        </div>
+
+        <section aria-label="链路台账" style="margin-top: var(--s5)">
+          <div class="label">链路台账 · tp doctor</div>
+          <div class="ledger">
+            <div class="ledger__head">
+              <span>段</span><span>判定</span><span>状态</span><span>读数</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">本地 Orca</span>
+              <span class="lrow__val">127.0.0.1:6768 已监听</span>
+              <span class="lrow__state lrow__state--ok">✔ 通过</span>
+              <span class="lrow__meta">3 ms</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">中继可达</span>
+              <span class="lrow__val">47.98.203.17:30123 可达</span>
+              <span class="lrow__state lrow__state--ok">✔ 通过</span>
+              <span class="lrow__meta">41 ms</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">鉴权</span>
+              <span class="lrow__val">token 接受 · 证书指纹匹配</span>
+              <span class="lrow__state lrow__state--ok">✔ 通过</span>
+              <span class="lrow__meta">TOFU</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">隧道</span>
+              <span class="lrow__val">TLS_AES_256_GCM_SHA384 已建立</span>
+              <span class="lrow__state lrow__state--ok">✔ 通过</span>
+              <span class="lrow__meta">6 h</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">外部可达</span>
+              <span class="lrow__val">待手机 4G 打开 30124/health 验证</span>
+              <span class="lrow__state lrow__state--wait">– 待验</span>
+              <span class="lrow__meta">6769</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid-2">
+          <section aria-label="接入参数">
+            <div class="label label--tight">接入参数</div>
+            <div class="kv"><span class="kv__k">本地映射</span><span class="kv__v">127.0.0.1:6768 → Orca</span></div>
+            <div class="kv"><span class="kv__k">隧道引擎</span><span class="kv__v">自研 · rathole 逃生舱</span></div>
+            <div class="kv"><span class="kv__k">开机自启</span><span class="kv__v">计划任务 · 已启用</span></div>
+            <div class="kv"><span class="kv__k">健康自检</span><span class="kv__v">47.98.203.17:30124/health</span></div>
+          </section>
+
+          <section aria-label="最近事件">
+            <div class="label-row">
+              <div class="label">最近事件</div>
+              <button class="btn btn--quiet" data-goto="logs" style="font-size: 0.8125rem; padding: var(--s1) var(--s2)">查看全部</button>
+            </div>
+            <div class="term" style="max-height: 148px" role="log">
+              <span class="term__line"><span class="term__dim">12:14:31</span> <span class="term__hint">WARN </span> tunnel  keepalive missed 1 · reconnecting</span>
+              <span class="term__line"><span class="term__dim">12:14:31</span> <span class="term__ok">INFO </span> tunnel  reconnected in 380 ms</span>
+              <span class="term__line"><span class="term__dim">12:09:03</span> <span class="term__ok">INFO </span> health  external check OK (200, 63 ms)</span>
+              <span class="term__line"><span class="term__dim">12:04:32</span> <span class="term__ok">INFO </span> service orca 6768 → entry:6768 forwarded</span>
+              <span class="term__line"><span class="term__dim">12:04:31</span> <span class="term__ok">INFO </span> auth    token accepted · fp SHA256:9f3c…b12</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------ 诊断 -->
+    <section class="view" id="view-doctor" aria-label="诊断">
+      <div class="view__in">
+        <header class="page-head">
+          <div>
+            <h1 class="page-title">五段诊断</h1>
+            <p class="page-meta">上次诊断 12:14 · 耗时 1.8 s · 每段独立判定</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn--ghost">复制结果</button>
+            <button class="btn btn--primary">重新诊断</button>
+          </div>
+        </header>
+
+        <div class="band on-dark">
+          <div class="doctor-verdict-top">
+            <span>tp doctor</span>
+            <span>本地 → 中继 → 鉴权 → 隧道 → 外部</span>
+          </div>
+          <div class="readout" style="margin-top: var(--s3)">
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">本地</span>
+              <span></span><span class="readout__val">127.0.0.1:6768 已监听 · Orca 在线</span><span class="readout__meta">3 ms</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">中继</span>
+              <span></span><span class="readout__val">47.98.203.17:30123 可达 · 三次握手正常</span><span class="readout__meta">41 ms</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">鉴权</span>
+              <span></span><span class="readout__val">token 接受 · 证书指纹与配对码一致</span><span class="readout__meta">TOFU</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">隧道</span>
+              <span></span><span class="readout__val">TLS 已建立 · 上下行转发中 · 无丢包</span><span class="readout__meta">6 h</span>
+            </div>
+            <div class="readout__row readout__row--wait">
+              <span class="readout__mark">–</span><span class="readout__seg">外部</span>
+              <span></span><span class="readout__val">中继健康端点 OK · 待手机端外部验证</span><span class="readout__meta">6769</span>
+            </div>
+          </div>
+          <div class="band__verdict">
+            <strong>四段通过，链路可用</strong>
+            <span class="band__hint">外部段需手机 4G 打开 <code>47.98.203.17:30124/health</code>，显示 OK 即全链路通畅。</span>
+          </div>
+        </div>
+
+        <section class="troubles" aria-label="常见处理">
+          <div class="label">连不上时的常见处理</div>
+          <div class="ledger">
+            <div class="lrow">
+              <span class="lrow__key">杀软拦截</span>
+              <span class="lrow__val">自研引擎无杀软特征；仅 --engine rathole 逃生舱会遇到</span>
+              <span class="lrow__state lrow__state--ok">已排除</span>
+              <span class="lrow__meta">本机</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">走代理的网络</span>
+              <span class="lrow__val">为服务器 IP 添加 DIRECT 直连规则，避免出口绕境</span>
+              <span class="lrow__state lrow__state--wait">待配置</span>
+              <span class="lrow__meta">检测到</span>
+            </div>
+            <div class="lrow">
+              <span class="lrow__key">服务器 IP 变了</span>
+              <span class="lrow__val">家宽需 DDNS；使用 VPS 则不会变，重新配对即可</span>
+              <span class="lrow__state lrow__state--ok">未发生</span>
+              <span class="lrow__meta">24 h</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="log-foot">
+          <span>等价命令 <code>tp doctor</code></span>
+          <span>五段独立判定 · 结果仅存于本机</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------ 日志 -->
+    <section class="view" id="view-logs" aria-label="日志">
+      <div class="view__in" style="display:flex; flex-direction:column; min-height:100%; padding-bottom: var(--s5)">
+        <header class="page-head">
+          <div>
+            <h1 class="page-title">引擎日志</h1>
+            <p class="page-meta">128 行 · 仅存于本机，不上传</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn--ghost">清空</button>
+            <button class="btn btn--ghost">复制</button>
+          </div>
+        </header>
+
+        <div class="logbar">
+          <div class="seg" role="group" aria-label="日志级别筛选">
+            <button aria-pressed="true">全部</button>
+            <button aria-pressed="false">INFO</button>
+            <button aria-pressed="false">WARN</button>
+            <button aria-pressed="false">ERROR</button>
+          </div>
+          <input class="field" type="search" placeholder="搜索日志…" aria-label="搜索日志">
+          <span class="logbar__spacer"></span>
+          <span class="follow">
+            跟随最新
+            <button class="switch" role="switch" aria-checked="true" aria-label="跟随最新日志"></button>
+          </span>
+        </div>
+
+        <div class="logterm">
+          <div class="term" role="log">
+            <span class="term__line"><span class="term__dim">12:14:31.204</span> <span class="term__hint">WARN </span> tunnel  keepalive missed 1 · reconnecting (attempt 1)</span>
+            <span class="term__line"><span class="term__dim">12:14:31.584</span> <span class="term__ok">INFO </span> tunnel  reconnected in 380 ms · rtt 41 ms</span>
+            <span class="term__line"><span class="term__dim">12:14:31.590</span> <span class="term__ok">INFO </span> service orca 127.0.0.1:6768 → entry:6768 forwarded</span>
+            <span class="term__line"><span class="term__dim">12:09:03.117</span> <span class="term__ok">INFO </span> health  external check OK (200, 63 ms) via entry:30124</span>
+            <span class="term__line"><span class="term__dim">12:04:32.881</span> <span class="term__ok">INFO </span> tunnel  transport tls established (TLS_AES_256_GCM_SHA384)</span>
+            <span class="term__line"><span class="term__dim">12:04:32.845</span> <span class="term__ok">INFO </span> service local listener ready on 127.0.0.1:6768</span>
+            <span class="term__line"><span class="term__dim">12:04:31.902</span> <span class="term__ok">INFO </span> auth    token accepted · fingerprint SHA256:9f3c…b12 matched</span>
+            <span class="term__line"><span class="term__dim">12:04:31.860</span> <span class="term__ok">INFO </span> tunnel  dial entry 47.98.203.17:30123 ok (41 ms)</span>
+            <span class="term__line"><span class="term__dim">12:04:31.812</span> <span class="term__ok">INFO </span> detect  entry host 47.98.203.17 · port base 30123 free</span>
+            <span class="term__line"><span class="term__dim">12:04:31.760</span> <span class="term__ok">INFO </span> engine  自研引擎启动 · pid 8124 · autostart=task</span>
+            <span class="term__line"><span class="term__dim">12:04:31.744</span> <span class="term__ok">INFO </span> config  loaded from C:\Users\hao\.tunnelport\client.toml</span>
+            <span class="term__line"><span class="term__dim">11:58:12.006</span> <span class="term__fail">ERROR</span> tunnel  dial entry timeout after 5000 ms · retrying</span>
+            <span class="term__line"><span class="term__dim">11:58:07.001</span> <span class="term__hint">WARN </span> net     route via proxy detected · forcing DIRECT for entry ip</span>
+            <span class="term__line"><span class="term__dim">11:52:44.118</span> <span class="term__ok">INFO </span> health  external check OK (200, 58 ms) via entry:30124</span>
+            <span class="term__line"><span class="term__dim">11:47:31.902</span> <span class="term__ok">INFO </span> service orca 127.0.0.1:6768 → entry:6768 forwarded</span>
+            <span class="term__line"><span class="term__dim">11:44:12.310</span> <span class="term__ok">INFO </span> tunnel  keepalive ok · rtt 41 ms</span>
+            <span class="term__line"><span class="term__dim">11:39:03.088</span> <span class="term__ok">INFO </span> health  external check OK (200, 61 ms) via entry:30124</span>
+            <span class="term__line"><span class="term__dim">11:36:20.410</span> <span class="term__ok">INFO </span> tunnel  transport tls established (TLS_AES_256_GCM_SHA384)</span>
+            <span class="term__line"><span class="term__dim">11:34:52.640</span> <span class="term__hint">WARN </span> net     proxy env detected · DIRECT rule applied for entry ip</span>
+          </div>
+          <div class="log-foot">
+            <span>等价命令 <code>tp logs -f</code></span>
+            <span>滚动到底部自动跟随 · Ctrl+F 搜索</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------ 设置 -->
+    <section class="view" id="view-settings" aria-label="设置">
+      <div class="view__in">
+        <header class="page-head">
+          <div>
+            <h1 class="page-title">设置</h1>
+            <p class="page-meta">改动立即生效 · 无账号、无控制面、无埋点</p>
+          </div>
+        </header>
+
+        <div class="set-group">
+          <div class="label">通用</div>
+          <div class="srow">
+            <span class="srow__key">开机自启</span>
+            <span class="srow__desc">Windows 计划任务，登录时自动运行 <code>tp connect</code></span>
+            <span class="srow__ctl"><button class="switch" role="switch" aria-checked="true" aria-label="开机自启"></button></span>
+          </div>
+          <div class="srow">
+            <span class="srow__key">最小化到托盘</span>
+            <span class="srow__desc">关闭窗口时保持隧道运行，托盘图标显示连接状态</span>
+            <span class="srow__ctl"><button class="switch" role="switch" aria-checked="true" aria-label="最小化到托盘"></button></span>
+          </div>
+        </div>
+
+        <div class="set-group">
+          <div class="label">隧道</div>
+          <div class="srow">
+            <span class="srow__key">端到端加密</span>
+            <span class="srow__desc">本地终止 TLS（<code>--tls-terminate</code>），中继只见密文；需手机端接受 <code>https://</code></span>
+            <span class="srow__ctl"><button class="switch" role="switch" aria-checked="false" aria-label="端到端加密"></button></span>
+          </div>
+          <div class="srow">
+            <span class="srow__key">隧道引擎</span>
+            <span class="srow__desc">连接中不可更改；rathole 为逃生舱，断开后可切换</span>
+            <span class="srow__ctl">
+              <span class="seg" role="group" aria-label="隧道引擎">
+                <button aria-pressed="true">自研</button>
+                <button aria-pressed="false" disabled>rathole</button>
+              </span>
+            </span>
+          </div>
+          <div class="srow">
+            <span class="srow__key">本地映射</span>
+            <span class="srow__desc">Orca 桌面端监听地址，端口被占时自动提示顺延</span>
+            <span class="srow__ctl"><input class="field" value="127.0.0.1:6768" aria-label="本地映射地址"></span>
+          </div>
+          <div class="srow">
+            <span class="srow__key">入口覆盖</span>
+            <span class="srow__desc">留空自动检测；代理 / 软路由网络可显式指定（<code>--entry-host</code>），DDNS 域名同此</span>
+            <span class="srow__ctl"><input class="field" placeholder="自动检测" aria-label="入口覆盖"></span>
+          </div>
+        </div>
+
+        <div class="danger-zone">
+          <div class="label">配对与安全</div>
+          <div class="srow">
+            <span class="srow__key">重置配对</span>
+            <span class="srow__desc">重新生成 token，所有已配对手机需重新扫码；token 泄露时使用</span>
+            <span class="srow__ctl"><button class="btn btn--danger">重置配对码</button></span>
+          </div>
+          <div class="srow">
+            <span class="srow__key">当前指纹</span>
+            <span class="srow__desc">仅用于人眼比对，不参与鉴权</span>
+            <span class="srow__ctl"><span class="mono" style="font-size: var(--fs-mono); color: var(--ink-2)">SHA256:9f3c…b12</span></span>
+          </div>
+        </div>
+
+        <div class="set-group">
+          <div class="label">关于</div>
+          <div class="srow">
+            <span class="srow__key">版本与许可</span>
+            <span class="srow__desc">隧道引擎自研 · 逃生舱 rathole v0.5.0（固定 tag 自构建）· 源码 MIT 开源</span>
+            <span class="srow__ctl">
+              <span class="mono" style="font-size: var(--fs-mono)">v0.1.0</span>
+              <button class="btn btn--ghost" style="font-size: var(--fs-small); padding: var(--s2) var(--s4)">检查更新</button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ====================================================== statusbar -->
+  <div class="statusbar">
+    <span><strong>已连接</strong> · RTT 41 ms</span>
+    <span>入口 47.98.203.17:30123</span>
+    <span class="sb-right">
+      <span>重连 0 次 / 24 h</span>
+      <span>v0.1.0</span>
+    </span>
+  </div>
+
+  <!-- ===================================================== QR modal -->
+  <div class="overlay" id="qr-overlay" role="dialog" aria-modal="true" aria-label="入口地址二维码">
+    <div class="modal">
+      <h3>手机扫码填入地址</h3>
+      <svg class="modal__qr" id="qr-svg" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="入口地址二维码"></svg>
+      <div class="modal__addr">47.98.203.17:30123</div>
+      <p class="modal__note">手机 Orca 粘贴此地址即可接入；也可在 Set up Mobile 中扫码配对。不要填 <code>wss://</code> 开头的地址。</p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" id="close-qr">关闭</button>
+        <button class="btn btn--primary" data-copy="47.98.203.17:30123">复制地址</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* tab switching ------------------------------------------------------- */
+  const tabs = document.querySelectorAll(".tab");
+  const views = document.querySelectorAll(".view");
+
+  function show(name) {
+    tabs.forEach(t => {
+      const on = t.dataset.view === name;
+      t.setAttribute("aria-current", on ? "page" : "false");
+      if (!on) t.removeAttribute("aria-current");
+    });
+    views.forEach(v => v.classList.toggle("is-active", v.id === "view-" + name));
+    const v = document.getElementById("view-" + name);
+    if (v) v.scrollTop = 0;
+  }
+
+  tabs.forEach(t => t.addEventListener("click", () => show(t.dataset.view)));
+  document.querySelectorAll("[data-goto]").forEach(b =>
+    b.addEventListener("click", () => show(b.dataset.goto))
+  );
+
+  /* deep link: index.html#doctor ---------------------------------------- */
+  const initial = location.hash.replace("#", "");
+  if (initial && document.getElementById("view-" + initial)) show(initial);
+  if (initial === "qr") document.getElementById("qr-overlay").classList.add("is-open");
+
+  /* switches ------------------------------------------------------------ */
+  document.querySelectorAll(".switch").forEach(s =>
+    s.addEventListener("click", () => {
+      if (s.disabled) return;
+      s.setAttribute("aria-checked", s.getAttribute("aria-checked") === "true" ? "false" : "true");
+    })
+  );
+
+  /* segmented (single choice) ------------------------------------------- */
+  document.querySelectorAll(".seg").forEach(g => {
+    const btns = g.querySelectorAll("button:not(:disabled)");
+    btns.forEach(b => b.addEventListener("click", () => {
+      btns.forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    }));
+  });
+
+  /* copy buttons --------------------------------------------------------- */
+  document.querySelectorAll("[data-copy]").forEach(b => {
+    const original = b.textContent;
+    b.addEventListener("click", () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(b.dataset.copy).catch(() => {});
+      b.textContent = "已复制";
+      setTimeout(() => { b.textContent = original; }, 1400);
+    });
+  });
+
+  /* QR modal ------------------------------------------------------------- */
+  const overlay = document.getElementById("qr-overlay");
+  document.getElementById("open-qr").addEventListener("click", () => {
+    overlay.classList.add("is-open");
+    document.getElementById("close-qr").focus();
+  });
+  document.getElementById("close-qr").addEventListener("click", () => overlay.classList.remove("is-open"));
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("is-open"); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") overlay.classList.remove("is-open"); });
+
+  /* deterministic QR-like matrix (visual placeholder, not a real QR) ----- */
+  (function drawQR() {
+    const svg = document.getElementById("qr-svg");
+    const N = 25, NS = "http://www.w3.org/2000/svg";
+    let seed = 4798203;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const mk = (x, y, w, h, fill) => {
+      const r = document.createElementNS(NS, "rect");
+      r.setAttribute("x", x); r.setAttribute("y", y);
+      r.setAttribute("width", w); r.setAttribute("height", h);
+      r.setAttribute("fill", fill);
+      svg.appendChild(r);
+    };
+    mk(0, 0, N, N, "#f5f6f4");
+    const finder = (ox, oy) => {
+      mk(ox, oy, 7, 7, "#141a17");
+      mk(ox + 1, oy + 1, 5, 5, "#f5f6f4");
+      mk(ox + 2, oy + 2, 3, 3, "#141a17");
+    };
+    const inFinder = (x, y) =>
+      (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+    for (let y = 0; y < N; y++)
+      for (let x = 0; x < N; x++)
+        if (!inFinder(x, y) && rnd() > 0.52) mk(x, y, 1, 1, "#141a17");
+    finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+    /* alignment pattern */
+    mk(N - 9, N - 9, 5, 5, "#141a17");
+    mk(N - 8, N - 8, 3, 3, "#f5f6f4");
+    mk(N - 7, N - 7, 1, 1, "#141a17");
+  })();
+</script>
+</body>
+</html>
