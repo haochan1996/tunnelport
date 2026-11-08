@@ -1,80 +1,55 @@
-# tunnelport
+# tunnelport 内部仓库（私有）
 
-> 一条命令，把你的 VPS 变成 Orca 手机端的稳定入口，把 NAS / 桌面上的服务接出去。不用配 frp，不用管端口和 IP，连不上时能一眼看出是哪一环。
+源码 + PRD + 发布流水线。**不公开**。公开仓是 [haochan1996/tunnelport](https://github.com/haochan1996/tunnelport)（站点 + Release 二进制）。
 
-**状态：MVP 开发中。** 规格已定稿，源码开放（MIT），暂无正式发布版本。
-
-> 产品需求书、定价与风险分析等属于内部文档，不在本公开仓库内。
-
----
-
-## 部署拓扑（30 秒看懂）
+## 目录
 
 ```
-手机 Orca ──→ 入口（有公网的机器 · tp serve）──→ 你的机器（tp connect）──→ Orca 6768
+cmd/tp/               CLI 入口：serve / connect / status / doctor / service
+internal/config/      状态存储（~/.tunnelport，token 只存指纹）
+internal/tokenx/      token 生成 / 配对 URL 解析
+internal/detect/      出口 IP、CGNAT、端口探测（FR-1）
+internal/engine/      Engine 接口 + rathole 实现（临时配置 + 保活重启）
+internal/address/     入口地址 / 二维码
+internal/diag/        tp doctor 五段诊断
+.github/workflows/    release.yml：打 tag → 多平台构建 → 推 Release 到公开仓
+scripts/              开发辅助脚本
 ```
 
-| 角色 | 部署在哪 | 说明 |
-|---|---|---|
-| 入口 `serve` | 有公网 IP 的机器（推荐国内 VPS） | 手机连它；24 小时在线 |
-| 客户端 `connect` | 跑着 Orca 的机器（桌面机或 NAS Docker） | 把本地 6768 接到入口 |
-
-前提：需要一台有公网 IP 的机器当入口。家里 NAS 没有公网 IP 也能用——它当客户端（把服务接出去），不是入口。
-
-## 它解决什么
-
-Orca 手机端连桌面有两条路，都不好用：
-
-- **官方 Relay** —— 接入点在境外，大陆经常超时或 DNS 被污染
-- **直连** —— 要求同一网络路径，出门就断
-
-你手里的 VPS 本来就能当入口，但要自己配 frp / `ssh -R`，还得处理端口、防火墙、DDNS、断线重连。绝大多数人卡在这一步，或者配完三天后坏了不知道怎么修。
-
-tunnelport 只做一件事：**把这台机器变成入口的过程，从「看教程 1 小时」压缩到「一条命令 3 分钟」，并且坏的时候能自己说出原因。**
-
-## 三个承诺
-
-| 承诺 | 对应能力 |
-|---|---|
-| 一条命令 | 安装即用，配置全自动生成 |
-| 不用管端口和 IP | 自动选端口、自动检测公网、自动出地址；端口被占自动顺延 |
-| 一眼看出哪一环 | `tp doctor` 把五段链路逐项判定 |
-
-## 命令
-
-```sh
-tp serve                    # 在 VPS 上起中继，输出 地址 / token / 二维码
-tp connect <配对码>          # 在桌面机上连中继，映射本地 6768
-tp doctor                   # 五段诊断：本地 → 中继 → 鉴权 → 隧道 → 外部
-tp status                   # 地址、状态、RTT
-tp logs -f                  # 引擎日志
-```
-
-## 构建与开发
+## 构建
 
 ```sh
 go build -o bin/tp ./cmd/tp
-go test ./...
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/tp-linux ./cmd/tp
 ```
 
-架构与开发说明见 [docs/DECISIONS.md](docs/DECISIONS.md)（技术决策记录）。
+rathole 从上游下载（开发用）：`./scripts/fetch-rathole.sh`
 
-## 明确不做
+## 本地冒烟（单机全链路，Windows 用 WSL）
 
-- **不用于翻墙**。只服务国内网络路径下的自有设备互联，拒绝任何穿透用途
-- 不运营中继节点（中继跑在**你自己的**机器上）
-- 不做账号体系、控制面、Web 面板
-- 不做 P2P 打洞（v2 再考虑）
+```sh
+# WSL 内
+python3 -m http.server 6768 --bind 127.0.0.1 &            # 假装 Orca
+./tp serve --bind 127.0.0.1 --port 30123 --public-port 17668 --rathole ./rathole &
+TOKEN=$(grep -oE '[A-Z2-7]{52}' /tmp/serve.log | head -1)  # serve 输出里抄
+./tp connect --host 127.0.0.1 --port 30123 --token $TOKEN --rathole ./rathole &
+curl http://127.0.0.1:17668/        # 穿隧道 → 应看到 6768 的响应
+curl http://127.0.0.1:6769/health   # 健康端点 → OK rtt=..ms
+./tp doctor --host 127.0.0.1 --port 30123
+```
 
-## 文档
+注意：**单机测试必须 `--public-port` 错开本地 6768**（serve 侧公开端口和 connect 侧本地端口在同一台机器上会冲突；真实部署天然分离）。rathole v0.5.0 的配置 schema 与主分支文档不同，配置生成已按 tag 源码对齐（PRD D-1 教训）。
 
-- 站点：https://haochan1996.github.io/tunnelport/
-- **部署与使用指南**：[docs/GUIDE.md](docs/GUIDE.md)
-- 技术决策记录：[docs/DECISIONS.md](docs/DECISIONS.md)
-- 杀软误杀手册：[docs/AV.md](docs/AV.md)
-- 产品需求与商业决策：内部文档，不公开
+## 发布
 
-## 许可
+1. `git tag v0.x.0 && git push --tags`
+2. CI 自动构建 5 个平台 → `SHA256SUMS` → 以 draft release 推到公开仓
+3. 前置配置（一次性）：创建对公开仓有 `contents:write` 权限的 PAT，
+   加到本仓 secret `RELEASE_TOKEN`
 
-源码以 [MIT](LICENSE) 许可开源。隧道引擎
-[rathole](https://github.com/rathole-org/rathole)（Apache-2.0）作为独立子进程运行。
+## 已知问题 / 下一步
+
+- 传输层 tcp+token，TLS（D-8）W1.5
+- doctor C/D 段需要活跃会话数据（W2 从引擎取）
+- 自启 `tp service`（W2）
+- 杀软误报（腾讯管家实测删 rathole）：已做 TP-6001 检测，提白名单流程待办

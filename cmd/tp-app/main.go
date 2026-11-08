@@ -64,6 +64,8 @@ type appState struct {
 	doctorDur time.Duration
 }
 
+var quitting bool
+
 var st = appState{state: "未连接", localMap: "127.0.0.1:6768", minToTray: true}
 
 // ---------- 供页面调用的服务 ----------
@@ -73,14 +75,17 @@ type App struct{}
 
 // StatusDTO 状态屏数据。
 type StatusDTO struct {
-	State  string      `json:"state"`
-	Dot    string      `json:"dot"` // pass | warn | fail
-	Meta   string      `json:"meta"`
-	Phone  string      `json:"phone"`
-	Health string      `json:"health"`
-	Params [][2]string `json:"params"`
-	Events []string    `json:"events"`
-	Bar    string      `json:"bar"`
+	State     string      `json:"state"`
+	Dot       string      `json:"dot"` // pass | warn | fail
+	Meta      string      `json:"meta"`
+	Phone     string      `json:"phone"`
+	Health    string      `json:"health"`
+	Params    [][2]string `json:"params"`
+	Events    []string    `json:"events"`
+	Bar       string      `json:"bar"`
+	Rtt       string      `json:"rtt"`
+	Version   string      `json:"version"`
+	LogsCount int         `json:"logsCount"`
 }
 
 // DoctorRow 诊断台账一行。
@@ -104,10 +109,20 @@ type DoctorDTO struct {
 func (App) Status() (StatusDTO, error) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
+	phone, health := st.phone, st.health
+	// 多设备：服务端分配的实际入口优先于 URL 参考值
+	if st.eng != nil {
+		if es := st.eng.Status(); es.Ports != nil {
+			if v, ok := es.Ports[engine.ServiceOrca]; ok && v > 0 && st.diagHost != "" {
+				phone = fmt.Sprintf("%s:%d", st.diagHost, v)
+				health = fmt.Sprintf("http://%s:%d/health", st.diagHost, v+1)
+			}
+		}
+	}
 	d := StatusDTO{
 		State:  st.state,
-		Phone:  st.phone,
-		Health: st.health,
+		Phone:  phone,
+		Health: health,
 		Events: tailLogs(4),
 	}
 	switch {
@@ -128,7 +143,16 @@ func (App) Status() (StatusDTO, error) {
 		{"开机自启", boolWord(autoStartEnabled())},
 		{"健康自检", st.health},
 	}
-	d.Bar = fmt.Sprintf("%s · 入口 %s", st.state, st.phone)
+	d.Bar = st.state
+	d.Version = version
+	d.LogsCount = len(tailLogs(500))
+	if st.diagHost != "" {
+		if r, err := detect.TCPRtt(st.diagHost, st.diagCtrl, 2*time.Second); err == nil {
+			d.Rtt = fmt.Sprintf("%d ms", r.Milliseconds())
+		} else {
+			d.Rtt = "—"
+		}
+	}
 	return d, nil
 }
 
@@ -329,6 +353,43 @@ func (App) Connect(url string) error {
 	return begin(url)
 }
 
+// createShortcut 创建/重建桌面快捷方式（幂等，覆盖）。返回快捷方式路径。
+// v1.3：设置里「重新创建」入口，供用户误删后自助恢复。
+func createShortcut() (string, error) {
+	if runtime.GOOS != "windows" {
+		return "", fmt.Errorf("仅 Windows 支持桌面快捷方式")
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	q := strings.ReplaceAll(exe, "'", "''")
+	ps := `
+$desktop = [Environment]::GetFolderPath('Desktop')
+$ws = New-Object -ComObject WScript.Shell
+$lnk = $ws.CreateShortcut("$desktop\tunnelport.lnk")
+$lnk.TargetPath = '` + q + `'
+$lnk.WorkingDirectory = Split-Path '` + q + `'
+$lnk.IconLocation = '` + q + `,0'
+$lnk.Save()
+Write-Output "$desktop\tunnelport.lnk"
+`
+	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("创建失败: %s", strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CreateShortcut 设置里「重新创建桌面快捷方式」。
+func (App) CreateShortcut() (string, error) {
+	p, err := createShortcut()
+	if err != nil {
+		return "", err
+	}
+	return "快捷方式已创建：" + p, nil
+}
+
 // ---------- 引擎 ----------
 
 func begin(url string) error {
@@ -458,23 +519,34 @@ func main() {
 		if !hasURL {
 			url = "/pairing.html"
 		}
+		// 深链：TP_TAB=1/2/3 → #doctor/#logs/#settings（与设计稿 hash 路由一致）
+		if v := os.Getenv("TP_TAB"); v != "" {
+			names := map[string]string{"1": "doctor", "2": "logs", "3": "settings", "0": "status"}
+			if n, ok := names[v]; ok && hasURL {
+				url = "/#" + n
+			}
+		}
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title: "tunnelport — Orca 稳定入口",
 			Width: 1280, Height: 800,
 			MinWidth: 980, MinHeight: 700,
-			URL: url,
+			Frameless: true, // 自绘标题栏：右上角 — ▢ ✕ 由页面按钮承担
+			URL:       url,
 		})
 
 		// 托盘小图标：显示连接状态，菜单可开窗/退出
 		menu := &mygo.Menu{}
 		menu.Append(
-			&mygo.MenuItem{ID: "show", Label: "显示主界面", Click: func(*mygo.MenuItem, *mygo.Window) { win.Show() }},
+			&mygo.MenuItem{ID: "show", Label: "打开主程序", Click: func(*mygo.MenuItem, *mygo.Window) { win.Show() }},
 			&mygo.MenuItem{ID: "quit", Label: "退出", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
 		)
 		if tray, err := mygo.NewTray(mygo.TrayOptions{
 			ID: "tunnelport", Icon: trayPNG,
 			ToolTip: "tunnelport — Orca 稳定入口", Menu: menu,
 		}); err == nil {
+			// 左击/双击图标 = 打开主程序；右键 = 弹出菜单（打开主程序 / 退出）
+			tray.OnClick(func() { win.Show() })
+			tray.OnRightClick(func() { tray.PopUpMenu() })
 			go func() {
 				for range time.Tick(3 * time.Second) {
 					st.mu.Lock()
@@ -487,6 +559,9 @@ func main() {
 
 		// 关闭行为：按设置决定退出或最小化到托盘（隧道继续运行）
 		win.OnClose(func(e *mygo.CloseEvent) {
+			if quitting {
+				return // 托盘「退出」：放行关闭
+			}
 			st.mu.Lock()
 			keep := st.minToTray
 			st.mu.Unlock()

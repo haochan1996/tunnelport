@@ -4,7 +4,7 @@
   "use strict";
   var call = function (m) {
     var a = Array.prototype.slice.call(arguments, 1);
-    return window.mygo.runtime.call("App." + m, ...a);
+    return window.mygo.call("App." + m, ...a);
   };
   var q = function (s, r) { return (r || document).querySelector(s); };
   var qa = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -56,13 +56,25 @@
       }
     }
 
-    // 底部状态栏
+    // 底部状态栏（结构：状态·RTT | 入口 | 重连 | 版本）
     var sb = q(".statusbar");
     if (sb) {
-      var spans = qa("span", sb);
-      if (spans[0]) spans[0].textContent = st.bar;
-      if (spans[1] && st.reconnects !== undefined) spans[1].textContent = "重连 " + (st.reconnects || 0) + " 次 / 24 h";
+      var spans = qa(":scope > span", sb);
+      if (spans[0]) spans[0].innerHTML = "<strong>" + st.state + "</strong> · RTT " + (st.rtt || "—");
+      if (spans[1]) spans[1].textContent = "入口 " + st.phone;
+      var right = q(".sb-right", sb);
+      if (right) {
+        var rs = qa("span", right);
+        if (rs[0]) rs[0].textContent = "重连 " + (st.reconnects || 0) + " 次 / 24 h";
+        if (rs[1]) rs[1].textContent = st.version || "v0.1.0";
+      }
     }
+
+    // tab 计数：日志真实行数
+    qa(".tab__n").forEach(function (n) {
+      var tab = n.closest(".tab");
+      if (tab && tab.dataset.view === "logs" && st.logsCount !== undefined) n.textContent = st.logsCount;
+    });
   }
 
   // ---------- 诊断屏 ----------
@@ -72,16 +84,18 @@
     var rows = qa(".readout__seg", v).map(function (seg) { return seg.parentElement; });
     (d.rows || []).forEach(function (r, i) {
       var row = rows[i]; if (!row) return;
+      // 设计稿结构：mark=符号 seg=段名 val=判定描述 meta=读数
       var mark = q(".readout__mark", row); if (mark) mark.textContent = r.state === "通过" ? "✔" : r.state === "失败" ? "✘" : "–";
-      var meta = q(".readout__meta", row); if (meta) meta.textContent = r.name;
-      var val = q(".readout__val", row); if (val) val.textContent = r.reading;
-      var seg = q(".readout__seg", row); if (seg) seg.textContent = r.fact;
+      var seg = q(".readout__seg", row); if (seg) seg.textContent = r.name;
+      var val = q(".readout__val", row); if (val) val.textContent = r.fact;
+      var meta = q(".readout__meta", row); if (meta) meta.textContent = r.reading;
     });
-    var verdict = q(".verdict", v) || q(".band__verdict", v);
-    if (verdict) verdict.textContent = d.verdict;
-    // 判定行的琥珀提示
-    qa(".term__hint, .hint", v).forEach(function (e) {
-      if (e.textContent.indexOf("health") >= 0 || e.textContent.indexOf("4G") >= 0) {
+    qa("*", v).forEach(function (e) {
+      if (e.children.length) return;
+      var t = e.textContent || "";
+      if (t.indexOf("链路可用") >= 0 || t.indexOf("链路畅通") >= 0 || t.indexOf("逐项排查") >= 0) {
+        e.textContent = d.verdict;
+      } else if (t.indexOf("即全链路通畅") >= 0 || (t.indexOf("外部段") >= 0 && t.indexOf("4G") >= 0)) {
         e.textContent = "外部段需手机 4G 打开 " + d.healthUrl + "，显示 OK 即全链路通畅。";
       }
     });
@@ -106,6 +120,31 @@
 
   // ---------- 交互 ----------
   function wire() {
+    // 无边框窗口：右上角 — ▢ ✕ 按钮 + 标题栏拖拽区
+    try {
+      var wc = q(".winctl");
+      if (wc) {
+        qa("button", wc).forEach(function (b) {
+          b.addEventListener("click", function () {
+            var w = window.mygo.window;
+            var label = b.getAttribute("aria-label") || "";
+            if (label.indexOf("最小化") >= 0) w.minimize();
+            else if (label.indexOf("最大化") >= 0) w.toggleMaximize();
+            else if (label.indexOf("关闭") >= 0) w.close();
+          });
+        });
+        // 拖拽区：标题栏整体可拖，交互控件除外
+        var bar = wc.parentElement;
+        if (bar) {
+          bar.style.setProperty("--app-region", "drag");
+          wc.style.setProperty("--app-region", "no-drag");
+          qa(".tabs, .tabs *, .brand, .brand *", bar).forEach(function (el) {
+            el.style.setProperty("--app-region", "no-drag");
+          });
+        }
+      }
+    } catch (e) {}
+
     // 复制按钮（设计稿自带 data-copy，接管到 Go 剪贴板）
     document.addEventListener("click", function (e) {
       var t = e.target.closest("[data-copy]");
@@ -164,6 +203,21 @@
         input.addEventListener("change", function () {
           var on = input.type === "checkbox" || input.type === "radio" ? input.checked : input.getAttribute("aria-checked") !== "true";
           call(pair[1], on).catch(function () {});
+        });
+      });
+    }
+
+    // 桌面快捷方式：误删后一键重建（v1.3）
+    var scBtn = document.getElementById("btn-shortcut");
+    if (scBtn) {
+      scBtn.addEventListener("click", function () {
+        scBtn.textContent = "创建中…";
+        call("CreateShortcut").then(function () {
+          scBtn.textContent = "已创建 ✓";
+          setTimeout(function () { scBtn.textContent = "重新创建"; }, 2500);
+        }).catch(function () {
+          scBtn.textContent = "创建失败";
+          setTimeout(function () { scBtn.textContent = "重新创建"; }, 2500);
         });
       });
     }
@@ -232,10 +286,33 @@
     }
   }
 
+  // 状态屏「链路台账」（.lrow）接真实五段数据
+  function paintLedger(rows) {
+    var sec = q('section[aria-label="链路台账"]');
+    if (!sec) return;
+    var ls = qa(".lrow", sec);
+    (rows || []).forEach(function (r, i) {
+      var row = ls[i]; if (!row) return;
+      var k = q(".lrow__key", row); if (k) k.textContent = r.name;
+      var v = q(".lrow__val", row); if (v) v.textContent = r.fact;
+      var st = q(".lrow__state", row);
+      if (st) {
+        st.textContent = (r.state === "通过" ? "✔ " : r.state === "失败" ? "✘ " : "– ") + r.state;
+        st.className = "lrow__state " + (r.state === "通过" ? "lrow__state--ok" : r.state === "失败" ? "lrow__state--bad" : "lrow__state--todo");
+      }
+      var mt = q(".lrow__meta", row); if (mt) mt.textContent = r.reading;
+    });
+  }
+
   // ---------- 轮询 ----------
+  var tickN = 0;
   function tick() {
+    tickN++;
     call("Status").then(paintStatus).catch(function () {});
-    if (location.hash.indexOf("doctor") >= 0) call("Doctor").then(paintDoctor).catch(function () {});
+    // 五段数据：状态屏台账 + 诊断屏同源（每 3 轮 = 9s 刷一次，探测不至过频）
+    if (tickN % 3 === 1 || location.hash.indexOf("doctor") >= 0) {
+      call("Doctor").then(function (d) { paintLedger(d.rows); paintDoctor(d); }).catch(function () {});
+    }
     if (location.hash.indexOf("logs") >= 0) call("Logs", 0, "").then(paintLogs).catch(function () {});
   }
 

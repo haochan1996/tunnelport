@@ -17,4 +17,4 @@ gh release download "$VER" --repo "$REPO" --pattern "$A" --clobber -O bin/rathol
 unzip -o -q bin/rathole.zip -d bin/
 rm -f bin/rathole.zip
 chmod +x bin/rathole 2>/dev/null || true
-echo "完成：bin/rathole"
+echo "完成：bin/rathole（不内嵌：HackTool 专杀特征会连带标记宿主，D-13）"

@@ -1,35 +1,18 @@
 # 构建产物
-/dist/
 /bin/
+/dist/
 *.exe
 *.test
-*.out
 
-# 依赖
-node_modules/
+# 引擎日志（含脱敏前提下的本地元数据）
+engine.log
+
+# Go
 vendor/
 
-# 本地配置与状态
-.tunnelport/
-*.local.json
-.env
-.env.local
-
-# 内部文档永不入库（公开仓库）
-PRD*.md
-docs-internal/
-
-# 编辑器与系统
+# 系统
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
 *.swp
-
-# 站点构建临时目录
-_site/
-.ux/
-site/_live*
-site/_final*
-site/_donate*
-Ui设计/
+internal/engine/embedded/rathole
+internal/engine/embedded/rathole.exe
