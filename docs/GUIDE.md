@@ -64,7 +64,8 @@ curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
 
 常见情况：
 
-- **Windows 杀软拦截**：自研引擎无杀软特征，不会拦截；若使用 `--engine rathole` 逃生舱才会遇到
+- **Windows 弹 SmartScreen**（"Windows 已保护你的电脑"）：未签名软件的通用提示，点「更多信息」→「仍要运行」即可
+- **杀软删除**（罕见）：自研引擎无特征一般不会被拦；真遇到看 [杀软误杀手册](AV.md)（申诉材料已备）
 - **走代理的网络**：为服务器 IP 添加 DIRECT 直连规则
 - **服务器 IP 变了**：家宽需 DDNS；用 VPS 则不会变
 
