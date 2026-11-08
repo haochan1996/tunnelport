@@ -126,6 +126,19 @@ elif command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
 else
   tail -55 "$HOME/tunnelport.log"
 fi
+# 云厂商检测：防火墙是头号故障点（内网自检全绿也打不通），直接给控制台指引
+if command -v curl >/dev/null 2>&1; then
+  if curl -s --connect-timeout 2 http://metadata.tencentyun.com/latest/meta-data/instance-id >/dev/null 2>&1; then
+    echo
+    echo "⚠ 检测到腾讯云服务器：请到【控制台 → 轻量应用服务器 → 防火墙 → 添加规则】"
+    echo "  放行上面「安全组放行」行的 TCP 端口段（如 30000-30002），否则手机/外网无法访问。"
+    echo "  快速测试可用预设模板「放通所有端口」，测完再收紧。"
+  elif curl -s --connect-timeout 2 http://100.100.100.200/latest/meta-data/instance-id >/dev/null 2>&1; then
+    echo
+    echo "⚠ 检测到阿里云服务器：请到【控制台 → ECS → 安全组】放行上面提示的 TCP 端口段。"
+  fi
+fi
+
 cat <<'NEXT'
 
 ──────────────────────────────────────────────────
