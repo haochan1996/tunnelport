@@ -4,6 +4,19 @@
 > rathole 甚至有专杀特征 `HackTool/Rathole.a`）。tunnelport 从架构上规避了大部分
 > 风险（自研引擎、无第三方特征、不落盘额外二进制），剩余风险靠下面三层防线闭环。
 
+## 关键实验（2026-11-08，火绒实测）：什么决定误杀
+
+| 二进制 | 形态 | 火绒判定 |
+|---|---|---|
+| `tp.exe`（CLI） | 控制台子程序 | ❌ 下载即删（`Backdoor/CobaltStrike.bh`——Go 联网程序经典误报） |
+| `tunnelport.exe`（GUI） | **windowsgui + 图标 + 清单 + VERSIONINFO** | ✅ 存活（连续观察 30s+） |
+
+**结论**：「控制台 + 联网 + 无资源」是启发式靶心；GUI 子程序 + 版本资源元数据
+显著降误报。CI 已固化该配方（release.yml：Windows 构建自动嵌入资源、GUI 强制
+windowsgui）。Windows 用户请以 **tunnelport 桌面软件**为主，CLI 在 VPS（Linux）上用。
+
+**被删了怎么办**：火绒 → 安全中心 → 隔离区 → 恢复 + 加信任目录。同理适用于其他杀软。
+
 ## 最快路径（零流程，现在就能用）
 
 **现状：实测未被拦截** —— 无需任何操作。若 Windows 下载时弹 SmartScreen
