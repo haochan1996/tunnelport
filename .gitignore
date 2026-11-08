@@ -29,3 +29,6 @@ Thumbs.db
 # 站点构建临时目录
 _site/
 .ux/
+site/_live*
+site/_final*
+site/_donate*
