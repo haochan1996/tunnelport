@@ -6,10 +6,10 @@
 #
 # 兼容：Linux x86_64/arm64（systemd 或无 systemd）、macOS x86_64/arm64（launchd）。
 # Windows：Releases 直接下载 tp.exe，或在 WSL 中运行本脚本。
-# 环境变量：TP_VERSION（默认 v0.1.0）、TP_DOWNLOAD_URL（自定义下载源）、TP_PORT_BASE
+# 环境变量：TP_VERSION（默认 v1.0.0）、TP_DOWNLOAD_URL（自定义下载源）、TP_PORT_BASE
 set -eu
 
-VERSION="${TP_VERSION:-v0.1.2}"
+VERSION="${TP_VERSION:-v1.0.0}"
 BASE_URL="https://github.com/haochan1996/tunnelport/releases/download/${VERSION}"
 
 ROLE="serve"

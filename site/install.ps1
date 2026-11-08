@@ -4,13 +4,13 @@
 #   connect（电脑）：powershell -c "$env:TP_ROLE='connect'; $env:TP_URL='<配对链接>'; irm https://haochan1996.github.io/tunnelport/install.ps1 | iex"
 #
 # 自动完成：下载 → 安装到用户目录（无需管理员）→ 注册开机自启（计划任务）→ 打印地址。
-# 环境变量：TP_VERSION（默认 v0.1.0）、TP_URL（connect 模式的配对链接）
+# 环境变量：TP_VERSION（默认 v1.0.0）、TP_URL（connect 模式的配对链接）
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 # 提示：想装桌面图形界面的用户请直接下载 tunnelport_windows_amd64.exe（GitHub Release），
 # 本脚本安装的是命令行工具 tp（服务器/无人值守场景）。
 $ErrorActionPreference = "Stop"
 
-$version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v0.1.2" }
+$version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v1.0.0" }
 $role = if ($env:TP_ROLE) { $env:TP_ROLE } else { "serve" }
 $url = $env:TP_URL
 if ($role -eq "connect" -and -not $url) {
