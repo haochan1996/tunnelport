@@ -445,6 +445,13 @@ func main() {
 	mygo.SetFrontend(sub)
 	mygo.BindAs("App", &App{})
 
+	// 单实例：二次启动只唤起已有窗口（托盘常驻时双击图标 = 打开主界面）
+	isPrimary, signalShow, showRequested := acquire()
+	if !isPrimary {
+		signalShow()
+		return
+	}
+
 	mygo.App.SetName("tunnelport")
 	mygo.App.WhenReady(func() {
 		url := "/"
@@ -488,6 +495,15 @@ func main() {
 				win.Hide()
 			}
 		})
+
+		// 二次启动唤起：托盘/隐藏状态下双击图标打开主界面
+		go func() {
+			for range time.Tick(time.Second) {
+				if showRequested() {
+					win.Show()
+				}
+			}
+		}()
 	})
 	_ = mygo.App.Run()
 }

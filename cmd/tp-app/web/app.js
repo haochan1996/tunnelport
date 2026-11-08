@@ -168,6 +168,47 @@
       });
     }
 
+    // 检查更新（关于组的按钮）：点击检查 → 有新版则变为「更新并安装」
+    var updBtn = null;
+    qa("#view-settings .btn").forEach(function (b) {
+      if (b.textContent.indexOf("检查更新") >= 0) updBtn = b;
+    });
+    if (updBtn) {
+      var updState = 0; // 0 未检查 / 1 可更新 / 2 已最新或已装
+      updBtn.addEventListener("click", function () {
+        if (updState === 0 || updState === 3) {
+          updState = 3;
+          updBtn.textContent = "检查中…";
+          call("CheckUpdate").then(function (u) {
+            if (u.hasUpdate && u.assetUrl) {
+              updState = 1;
+              updBtn.textContent = "更新到 " + u.latest;
+            } else if (u.hasUpdate) {
+              updState = 2;
+              updBtn.textContent = "去发布页";
+              call("OpenURL", u.releaseUrl).catch(function () {});
+            } else {
+              updState = 2;
+              updBtn.textContent = "已是最新版";
+            }
+          }).catch(function () {
+            updState = 0;
+            updBtn.textContent = "检查失败，重试";
+          });
+        } else if (updState === 1) {
+          updState = 3;
+          updBtn.textContent = "更新中…";
+          call("DoUpdate").then(function (msg) {
+            updState = 2;
+            updBtn.textContent = msg.indexOf("重启") >= 0 ? "重启应用生效" : msg;
+          }).catch(function () {
+            updState = 0;
+            updBtn.textContent = "更新失败，重试";
+          });
+        }
+      });
+    }
+
     // 日志屏：级别/搜索 → 重新拉取（简单轮询）
     setInterval(function () {
       if (!location.hash || location.hash.indexOf("logs") < 0) return;
