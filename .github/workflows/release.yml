@@ -37,6 +37,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Embed Windows resources (VERSIONINFO + icon)
+        if: matrix.os == 'windows'
+        run: |
+          go run github.com/tc-hib/go-winres@latest make --in cmd/tp/winres/winres.json --arch ${{ matrix.arch }} --out cmd/tp/winres.syso
+          go run github.com/tc-hib/go-winres@latest make --in cmd/tp-app/winres/winres.json --arch ${{ matrix.arch }} --out cmd/tp-app/winres.syso
+          mv cmd/tp/winres.syso_windows_${{ matrix.arch }}.syso cmd/tp/winres.syso
+          mv cmd/tp-app/winres.syso_windows_${{ matrix.arch }}.syso cmd/tp-app/winres.syso
       - name: Build CLI + Desktop GUI
         env:
           CGO_ENABLED: "0"
