@@ -68,6 +68,7 @@ curl http://127.0.0.1:30102/health    # 健康端点 → OK rtt=..ms
 | 文档 | 内容 |
 |---|---|
 | [docs/GUIDE.md](docs/GUIDE.md) | 安装 / 使用 / 多设备 / 排障 / rathole 逃生舱 |
+| [docs/CLI.md](docs/CLI.md) | 命令行完整参考（serve / connect / status / doctor / logs） |
 | [docs/AV.md](docs/AV.md) | 杀软误报说明与申诉材料 |
 | [docs/SIGNING.md](docs/SIGNING.md) | 代码签名计划（SignPath） |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | 架构设计决策记录 |

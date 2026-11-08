@@ -148,6 +148,8 @@ rathole 只是应急对照用的"逃生舱"，用完就切回来。
 
 ## 其他安装方式
 
+> 命令行完整参数见 [CLI 参考](CLI.md)。
+
 <details>
 <summary>Docker（NAS / 容器环境）</summary>
 
