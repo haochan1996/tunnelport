@@ -162,5 +162,14 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           draft: false
-          prerelease: true
+          prerelease: false
+          body: |
+            ## 该下哪个文件？
+
+            | 文件 | 用途 |
+            |---|---|
+            | `tunnelport_windows_amd64.exe` | **桌面图形界面（Windows）——大多数用户下这个** |
+            | `tunnelport_darwin_arm64` / `tunnelport_darwin_amd64` | 桌面图形界面（macOS Apple 芯片 / Intel） |
+            | `tunnelport_linux_amd64` / `tunnelport_linux_arm64` | 桌面图形界面（Linux） |
+            | `tp_windows_amd64.exe` / `tp_*` | 命令行工具（服务器 `tp serve`、诊断 `tp doctor`）——需在终端运行，双击无效 |
           files: dist/*
