@@ -42,7 +42,7 @@ func Ensure(dir string) (string, error) {
 	p12Path := filepath.Join(dir, "identity.p12")
 
 	if _, err := os.Stat(certPath); err == nil {
-		fp, _, err := fingerprintFile(certPath)
+		fp, _, err := FingerprintFile(certPath)
 		return fp, err
 	}
 
@@ -97,7 +97,7 @@ func Fingerprint(cert *x509.Certificate) string {
 	return hex.EncodeToString(h[:])
 }
 
-func fingerprintFile(pemPath string) (string, *x509.Certificate, error) {
+func FingerprintFile(pemPath string) (string, *x509.Certificate, error) {
 	b, err := os.ReadFile(pemPath)
 	if err != nil {
 		return "", nil, err
