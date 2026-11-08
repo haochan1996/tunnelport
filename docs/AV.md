@@ -4,6 +4,27 @@
 > rathole 甚至有专杀特征 `HackTool/Rathole.a`）。tunnelport 从架构上规避了大部分
 > 风险（自研引擎、无第三方特征、不落盘额外二进制），剩余风险靠下面三层防线闭环。
 
+## 最快路径（零流程，现在就能用）
+
+**现状：实测未被拦截** —— 无需任何操作。若 Windows 下载时弹 SmartScreen
+（"Windows 已保护你的电脑"），这不是病毒警告，是"未签名软件"的通用提示：
+
+> 点 **「更多信息」→「仍要运行」** 即可，两下。
+
+**可选的 5 分钟加固**（一次提交，Microsoft 全球放行）：
+打开 https://www.microsoft.com/wdsi/filesubmission ，填：
+
+| 字段 | 内容 |
+|---|---|
+| 选择文件 | 下载的 `tunnelport_windows_amd64.exe`（或下方哈希对应的文件） |
+| 是否开发人员 | 是（自称开发者） |
+| 软件名称 | tunnelport |
+| 软件用途 | Self-hosted TCP tunnel for Orca remote development |
+| 来源 | https://github.com/haochan1996/tunnelport（开源 MIT，可审计） |
+
+无需注册账号，一般 72 小时内出结果。**SignPath 签名**（更彻底）见
+[SIGNING.md](SIGNING.md)，用户量大后再做即可。
+
 ## 现状评估（2026-11-08 实测）
 
 | 项 | 状态 |
