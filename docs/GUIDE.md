@@ -40,11 +40,14 @@ curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
 curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh -s -- connect <第 1 步的配对链接>
 ```
 
-**Windows（一条命令，含开机自启）：**
+**Windows（一条命令，含开机自启）** —— 在 PowerShell 窗口里直接粘贴：
 
 ```powershell
-powershell -c "$env:TP_ROLE='connect'; $env:TP_URL='<第 1 步的配对链接>'; irm https://haochan1996.github.io/tunnelport/install.ps1 | iex"
+$env:TP_ROLE='connect'; $env:TP_URL='<第 1 步的配对链接>'; irm https://haochan1996.github.io/tunnelport/install.ps1 | iex
 ```
+
+> 在 cmd（黑窗）里用这条（注意外层用单引号，避免变量被提前展开）：
+> `powershell -c "$env:TP_ROLE='connect'; $env:TP_URL='<配对链接>'; irm https://haochan1996.github.io/tunnelport/install.ps1 | iex"`
 
 配对码丢了不用慌：`tp status --show-pairing` 随时取回。
 
