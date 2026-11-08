@@ -34,6 +34,7 @@ case "${TP_ROLE}" in
     fi
     set -- connect --token "${TP_TOKEN}" --rathole "$RATHOLE"
     [ -n "${TP_LOCAL_PORT}" ] && set -- "$@" --local-port "${TP_LOCAL_PORT}"
+    [ -n "${TP_LOCAL_HOST}" ] && set -- "$@" --local-host "${TP_LOCAL_HOST}"
     [ -n "${TP_HOST}" ] && set -- "$@" --host "${TP_HOST}"
     [ -n "${TP_CONTROL_PORT}" ] && set -- "$@" --port "${TP_CONTROL_PORT}"
     exec "$TP" "$@"

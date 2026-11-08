@@ -28,20 +28,28 @@ curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
 
 然后在云控制台**放行输出里提示的 TCP 端口段**（默认 30000-30002）。
 
-> macOS / Windows / 想用 Docker 的用户见文末「其他安装方式」。
+> 安装脚本兼容 **Linux（x86_64/arm64）与 macOS（x86_64/arm64）**；Windows 下载二进制或用 WSL。Docker 见文末。
 
 ---
 
-## 第 2 步 · 电脑上连接（下载一次 tp）
+## 第 2 步 · 电脑上连接
 
-1. 从 [Releases](https://github.com/haochan1996/tunnelport/releases) 下载对应平台的 tp（约 9MB，双击或命令行运行均可）
-2. 运行：
+**macOS（一条命令，含开机自启）：**
 
 ```sh
-tp connect <第 1 步的配对链接>
+curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh -s -- connect <第 1 步的配对链接>
 ```
 
-看到「已连接」即成功。**保持它运行**（会自动重连；开机自启见文末）。
+**Windows**：从 [Releases](https://github.com/haochan1996/tunnelport/releases) 下载 `tp_windows_amd64.exe`，
+运行 `tp.exe connect <配对链接>`（或在 WSL 中用上面的命令）。
+
+**有 NAS 的用户（电脑零安装）**：connect 跑在 NAS 上，转发指向电脑：
+
+```sh
+tp connect <配对链接> --local-host <电脑的局域网IP>
+```
+
+看到「已连接」即成功。**保持它运行**（自动重连；开机自启见文末）。
 
 ---
 
