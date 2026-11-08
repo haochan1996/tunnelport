@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -38,37 +39,84 @@ type ghRelease struct {
 	} `json:"assets"`
 }
 
+// latestTag 取最新非 draft 版本。三级策略：
+//  1. /releases/latest 重定向（浏览器口径，不受 API 配额限制）
+//  2. releases 列表页解析（覆盖 prerelease——"latest" 语义不含预发布）
+//  3. GitHub API 回退（匿名配额 60 次/时，共享出口 IP 常耗尽）
+func latestTag() (tag, pageURL string, rel *ghRelease, err error) {
+	noRedirect := &http.Client{
+		Timeout: 15 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	if resp, e := noRedirect.Get("https://github.com/haochan1996/tunnelport/releases/latest"); e == nil {
+		defer resp.Body.Close()
+		loc := resp.Header.Get("Location")
+		if k := strings.LastIndex(loc, "/tag/"); k >= 0 {
+			if t := loc[k+len("/tag/"):]; t != "" {
+				return t, loc, nil, nil
+			}
+		}
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	if resp, e := client.Get("https://github.com/haochan1996/tunnelport/releases"); e == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == 200 {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+			if m := regexp.MustCompile(`releases/tag/([0-9A-Za-z._-]+)`).FindSubmatch(b); m != nil {
+				t := string(m[1])
+				return t, "https://github.com/haochan1996/tunnelport/releases/tag/" + t, nil, nil
+			}
+		}
+	}
+	resp, err := client.Get("https://api.github.com/repos/haochan1996/tunnelport/releases?per_page=10")
+	if err != nil {
+		return "", "", nil, fmt.Errorf("网络不可用：%w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 403 {
+		return "", "", nil, fmt.Errorf("GitHub 接口限流，稍后重试；或手动更新：https://github.com/haochan1996/tunnelport/releases")
+	}
+	if resp.StatusCode != 200 {
+		return "", "", nil, fmt.Errorf("GitHub 返回 %d，稍后重试", resp.StatusCode)
+	}
+	var rels []ghRelease
+	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
+		return "", "", nil, fmt.Errorf("解析失败：%w", err)
+	}
+	for i := range rels {
+		if !rels[i].Draft {
+			return rels[i].TagName, rels[i].HTMLURL, &rels[i], nil
+		}
+	}
+	return "", "", nil, fmt.Errorf("暂无发布版本")
+}
+
 // CheckUpdate 对比 GitHub Releases 最新版。
 func (App) CheckUpdate() (UpdateDTO, error) {
 	out := UpdateDTO{Current: version, Latest: version}
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Get("https://api.github.com/repos/haochan1996/tunnelport/releases?per_page=10")
+	tag, page, rel, err := latestTag()
 	if err != nil {
-		return out, fmt.Errorf("网络不可用：%w", err)
+		return out, err
 	}
-	defer resp.Body.Close()
-	var rels []ghRelease
-	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
-		return out, fmt.Errorf("解析失败：%w", err)
+	if page == "" {
+		page = "https://github.com/haochan1996/tunnelport/releases/tag/" + tag
 	}
-	var latest *ghRelease
-	for i := range rels {
-		if !rels[i].Draft {
-			latest = &rels[i]
-			break
-		}
-	}
-	if latest == nil {
-		return out, fmt.Errorf("暂无发布版本")
-	}
-	out.Latest, out.ReleaseURL = latest.TagName, latest.HTMLURL
-	out.HasUpdate = compareVersions(latest.TagName, version) > 0
+	out.Latest, out.ReleaseURL = tag, page
+	out.HasUpdate = compareVersions(tag, version) > 0
 	want := assetName()
-	for _, a := range latest.Assets {
-		if a.Name == want {
-			out.AssetName, out.AssetURL = a.Name, a.URL
-			break
+	if rel != nil {
+		for _, a := range rel.Assets {
+			if a.Name == want {
+				out.AssetName, out.AssetURL = a.Name, a.URL
+				break
+			}
 		}
+	} else {
+		// 网页端点拿不到资产清单：按 release.yml 的命名约定直接构造直链
+		out.AssetName = want
+		out.AssetURL = "https://github.com/haochan1996/tunnelport/releases/download/" + tag + "/" + want
 	}
 	return out, nil
 }
@@ -86,9 +134,24 @@ func (App) DoUpdate() (string, error) {
 		return "请到发布页手动更新：" + u.ReleaseURL, nil
 	}
 	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Get(u.AssetURL)
+	tryGet := func(url string) (*http.Response, error) {
+		resp, err := client.Get(url)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
+		return resp, nil
+	}
+	resp, err := tryGet(u.AssetURL)
 	if err != nil {
-		return "", fmt.Errorf("下载失败：%w", err)
+		// 国内网络回退 gh-proxy 镜像
+		resp, err = tryGet("https://gh-proxy.com/" + u.AssetURL)
+		if err != nil {
+			return "", fmt.Errorf("下载失败：%v。可手动下载：%s", err, u.ReleaseURL)
+		}
 	}
 	defer resp.Body.Close()
 	exe, err := os.Executable()

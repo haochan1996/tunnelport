@@ -91,7 +91,13 @@
       var meta = q(".readout__meta", row); if (meta) meta.textContent = r.reading;
     });
     qa("*", v).forEach(function (e) {
-      if (e.children.length) return;
+      if (e.children.length) {
+        // 带 <code> 子元素的提示行也要重写（占位地址藏在 code 里，v0.1.2）
+        if (e.classList && e.classList.contains("band__hint") && d.healthUrl) {
+          e.textContent = "外部段需手机 4G 打开 " + d.healthUrl + "，显示 OK 即全链路通畅。";
+        }
+        return;
+      }
       var t = e.textContent || "";
       if (t.indexOf("链路可用") >= 0 || t.indexOf("链路畅通") >= 0 || t.indexOf("逐项排查") >= 0) {
         e.textContent = d.verdict;
@@ -321,9 +327,10 @@
               updState = 2;
               updBtn.textContent = "已是最新版";
             }
-          }).catch(function () {
+          }).catch(function (e) {
             updState = 0;
             updBtn.textContent = "检查失败，重试";
+            updBtn.title = String((e && e.message) || e || "");
           });
         } else if (updState === 1) {
           updState = 3;

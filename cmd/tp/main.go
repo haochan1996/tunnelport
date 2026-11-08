@@ -14,6 +14,18 @@ import (
 // version 由 CI 通过 ldflags 注入。
 var version = "dev"
 
+func init() {
+	// 双击 exe 启动时 Cobra 的 mousetrap 会弹英文提示后退出——改成人话，并等待回车
+	// （桌面用户应下载 tunnelport_windows_amd64.exe 图形界面版）
+	cobra.MousetrapHelpText = `这是 tunnelport 命令行工具（tp.exe）。
+
+想装桌面软件：请下载 tunnelport_windows_amd64.exe —— 图形界面，双击即用。
+想用命令行：请打开 cmd.exe 或 PowerShell，进入本目录运行 tp --help。
+
+按回车键退出...`
+	cobra.MousetrapDisplayDuration = 0 // 0 = 等待回车，来得及读完
+}
+
 func main() {
 	root := &cobra.Command{
 		Use:   "tp",

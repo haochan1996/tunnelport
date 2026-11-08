@@ -9,7 +9,7 @@
 # 环境变量：TP_VERSION（默认 v0.1.0）、TP_DOWNLOAD_URL（自定义下载源）、TP_PORT_BASE
 set -eu
 
-VERSION="${TP_VERSION:-v0.1.1}"
+VERSION="${TP_VERSION:-v0.1.2}"
 BASE_URL="https://github.com/haochan1996/tunnelport/releases/download/${VERSION}"
 
 ROLE="serve"

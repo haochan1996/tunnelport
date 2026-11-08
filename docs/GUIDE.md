@@ -79,6 +79,8 @@ tp connect <同一个配对链接>
 
 常见情况：
 
+- **双击 tp.exe 弹「This is a command line tool…」**：下载的是命令行版。
+  桌面图形界面版叫 **`tunnelport_windows_amd64.exe`**，重新下载它双击即用
 - **Windows 弹 SmartScreen**（"Windows 已保护你的电脑"）：未签名软件的通用提示，点「更多信息」→「仍要运行」即可
 - **杀软删除**（罕见）：自研引擎无特征一般不会被拦；真遇到看 [杀软误杀手册](AV.md)（申诉材料已备）
 - **走代理的网络**：为服务器 IP 添加 DIRECT 直连规则

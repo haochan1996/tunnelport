@@ -87,6 +87,85 @@
               <span class="lrow__state lrow__state--ok">✔ 通过</span>
               <span class="lrow__meta">6 h</span>
             </div>
+          </div>
+        </section>
+
+        <div class="grid-2">
+          <section aria-label="接入参数">
+            <div class="label label--tight">接入参数</div>
+            <div class="kv"><span class="kv__k">本地映射</span><span class="kv__v">127.0.0.1:6768 → Orca</span></div>
+            <div class="kv"><span class="kv__k">隧道引擎</span><span class="kv__v">自研 · rathole 逃生舱</span></div>
+            <div class="kv"><span class="kv__k">开机自启</span><span class="kv__v">计划任务 · 已启用</span></div>
+            <div class="kv"><span class="kv__k">健康自检</span><span class="kv__v">47.98.203.17:30124/health</span></div>
+          </section>
+
+          <section aria-label="最近事件">
+            <div class="label-row">
+              <div class="label">最近事件</div>
+              <button class="btn btn--quiet" data-goto="logs" style="font-size: 0.8125rem; padding: var(--s1) var(--s2)">查看全部</button>
+            </div>
+            <div class="term" style="max-height: 148px" role="log">
+              <span class="term__line"><span class="term__dim">12:14:31</span> <span class="term__hint">WARN </span> tunnel  keepalive missed 1 · reconnecting</span>
+              <span class="term__line"><span class="term__dim">12:14:31</span> <span class="term__ok">INFO </span> tunnel  reconnected in 380 ms</span>
+              <span class="term__line"><span class="term__dim">12:09:03</span> <span class="term__ok">INFO </span> health  external check OK (200, 63 ms)</span>
+              <span class="term__line"><span class="term__dim">12:04:32</span> <span class="term__ok">INFO </span> service orca 6768 → entry:6768 forwarded</span>
+              <span class="term__line"><span class="term__dim">12:04:31</span> <span class="term__ok">INFO </span> auth    token accepted · fp SHA256:9f3c…b12</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------ 诊断 -->
+    <section class="view" id="view-doctor" aria-label="诊断">
+      <div class="view__in">
+        <header class="page-head">
+          <div>
+            <h1 class="page-title">五段诊断</h1>
+            <p class="page-meta">上次诊断 12:14 · 耗时 1.8 s · 每段独立判定</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn--ghost">复制结果</button>
+            <button class="btn btn--primary">重新诊断</button>
+          </div>
+        </header>
+
+        <div class="band on-dark">
+          <div class="doctor-verdict-top">
+            <span>tp doctor</span>
+            <span>本地 → 中继 → 鉴权 → 隧道 → 外部</span>
+          </div>
+          <div class="readout" style="margin-top: var(--s3)">
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">本地</span>
+              <span></span><span class="readout__val">127.0.0.1:6768 已监听 · Orca 在线</span><span class="readout__meta">3 ms</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">中继</span>
+              <span></span><span class="readout__val">47.98.203.17:30123 可达 · 三次握手正常</span><span class="readout__meta">41 ms</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">鉴权</span>
+              <span></span><span class="readout__val">token 接受 · 证书指纹与配对码一致</span><span class="readout__meta">TOFU</span>
+            </div>
+            <div class="readout__row readout__row--ok">
+              <span class="readout__mark">✔</span><span class="readout__seg">隧道</span>
+              <span></span><span class="readout__val">TLS 已建立 · 上下行转发中 · 无丢包</span><span class="readout__meta">6 h</span>
+            </div>
+            <div class="readout__row readout__row--wait">
+              <span class="readout__mark">–</span><span class="readout__seg">外部</span>
+              <span></span><span class="readout__val">中继健康端点 OK · 待手机端外部验证</span><span class="readout__meta">6769</span>
+            </div>
+          </div>
+          <div class="band__verdict">
+            <strong>四段通过，链路可用</strong>
+            <span class="band__hint">外部段需手机 4G 打开 <code>47.98.203.17:30124/health</code>，显示 OK 即全链路通畅。</span>
+          </div>
+        </div>
+
+        <section class="troubles" aria-label="常见处理">
+          <div class="label">连不上时的常见处理</div>
+          <div class="ledger">
             <div class="lrow">
               <span class="lrow__key">杀软拦截</span>
               <span class="lrow__val">自研引擎无杀软特征；仅 --engine rathole 逃生舱会遇到</span>
