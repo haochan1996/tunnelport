@@ -54,8 +54,8 @@ func TestParseErrors(t *testing.T) {
 		"",                            // 空
 		"SHORT",                       // 非 52 位
 		"https://1.2.3.4:30123#x",     // 错误协议
-		"tunnelport://REDACTED // 缺 token
-		"tunnelport://REDACTED       // 缺 host —— 注意 token 也是非法的
+		"tunnelport://1.2.3.4:30123#", // 缺 token
+		"tunnelport://:30123#x",       // 缺 host —— 注意 token 也是非法的
 	}
 	for i, c := range cases {
 		if _, err := Parse(c); err == nil {
@@ -66,7 +66,7 @@ func TestParseErrors(t *testing.T) {
 
 func TestParseURLMissingFragment(t *testing.T) {
 	// URL 缺 #token → 报"不完整"
-	if _, err := Parse("tunnelport://REDACTED err == nil {
+	if _, err := Parse("tunnelport://1.2.3.4:30123?public=6768"); err == nil {
 		t.Fatal("缺 fragment 应报错")
 	}
 }

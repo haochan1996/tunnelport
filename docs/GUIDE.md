@@ -24,7 +24,7 @@ curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
 | 输出 | 用途 |
 |---|---|
 | **入口地址**（如 `1.2.3.4:30001`） | 第 3 步粘贴到 Orca |
-| **配对链接**（`tunnelport://REDACTED | 第 2 步在电脑上使用 |
+| **配对链接**（`tunnelport://…`） | 第 2 步在电脑上使用 |
 
 然后在云控制台**放行输出里提示的 TCP 端口段**（默认 30000-30002）。
 

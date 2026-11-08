@@ -14,7 +14,7 @@ func PairURL(host string, port int, token, fp string) string {
 	if fp != "" {
 		q = "?fp=" + fp
 	}
-	return fmt.Sprintf("tunnelport://REDACTED host, port, q, token)
+	return fmt.Sprintf("tunnelport://%s:%d%s#%s", host, port, q, token)
 }
 
 // EntryURL 手机 Orca 填写的地址（host:port）。

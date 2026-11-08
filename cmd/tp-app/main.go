@@ -1,7 +1,7 @@
 // tp-app 桌面端（MyGO webview 模式）——界面 = desktop-ui 高保真 HTML 设计稿，
 // 引擎 = Go 进程内自研隧道。页面经 mygo.runtime.call 调用 App.* 服务取真实数据。
 //
-//	tp-app [tunnelport://REDACTED [--local-host IP] [--local-port N]
+//	tp-app [tunnelport://配对链接] [--local-host IP] [--local-port N]
 package main
 
 import (

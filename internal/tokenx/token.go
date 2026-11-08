@@ -44,7 +44,7 @@ type Pair struct {
 	FP      string // 证书 SHA-256 指纹（防中间人，可空）
 }
 
-// PairURL 生成配对 URL：tunnelport://REDACTED
+// PairURL 生成配对 URL：tunnelport://<host>:<控制端口>?public=<服务端口>&fp=<证书指纹>#<token>
 func PairURL(host string, control int, token, fp string, public int) string {
 	q := fmt.Sprintf("?public=%d", public)
 	if fp != "" {
@@ -54,7 +54,7 @@ func PairURL(host string, control int, token, fp string, public int) string {
 }
 
 // Parse 接受两种输入（FR-3.3）：
-//  1. 完整 URL：tunnelport://REDACTED
+//  1. 完整 URL：tunnelport://host:控制端口?public=服务端口&fp=指纹#token
 //  2. 纯 token（host / 端口由 --host / --port 提供）
 func Parse(s string) (Pair, error) {
 	s = strings.TrimSpace(s)

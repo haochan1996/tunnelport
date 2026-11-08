@@ -28,13 +28,13 @@
         <p class="pair__step">第 2 步 · 电脑上连接</p>
         <h1>把配对链接粘进来，<br>手机就能找到这台电脑<span class="accent">。</span></h1>
         <p class="pair__lede">
-          第 1 步在 VPS 上运行安装脚本后，输出里有一条 <code>tunnelport://REDACTED 配对链接。
+          第 1 步在 VPS 上运行安装脚本后，输出里有一条 <code>tunnelport://…</code> 配对链接。
           粘贴到下面即可自动完成端口选择、证书指纹校验与开机自启 —— 不需要手动填 IP 和端口。
         </p>
 
         <div class="paste">
           <input class="field" type="text" autofocus
-                 placeholder="tunnelport://REDACTED
+                 placeholder="tunnelport://120.x.x.x:30000?public=…&amp;fp=…#52位TOKEN（整条粘贴）"
                  aria-label="配对链接">
           <button class="btn btn--primary" id="connect">连接</button>
         </div>

@@ -43,7 +43,7 @@ tp serve --port-base 30000 --entry-host <你的公网IP或域名>
 启动后输出三样东西：
 
 1. **入口地址** —— 粘贴到 Orca 桌面端「自定义网络地址」
-2. **配对链接**（`tunnelport://REDACTED 电脑端 `tp connect` 用；随时可用 `tp status --show-pairing` 取回
+2. **配对链接**（`tunnelport://…`）—— 电脑端 `tp connect` 用；随时可用 `tp status --show-pairing` 取回
 3. **安全组放行提示** —— 云服务器需在控制台放行对应端口段
 
 ### token 与配置
@@ -96,7 +96,7 @@ tp connect '<配对链接>'
 
 | 参数 | 环境变量 | 默认 | 说明 |
 |---|---|---|---|
-| 第 1 个参数 | `TP_TOKEN` | — | 配对链接 `tunnelport://REDACTED token（配 `--host/--port`） |
+| 第 1 个参数 | `TP_TOKEN` | — | 配对链接 `tunnelport://host:控制端口?public=入口端口&fp=证书指纹#TOKEN`，或纯 token（配 `--host/--port`） |
 | `--host HOST` | — | — | 中继地址（纯 token 时必填） |
 | `--port N` | `TP_CONTROL_PORT` | — | 中继控制端口（URL 自带；纯 token 时必填） |
 | `--local-port N` | — | `6768` | 本地 Orca 端口 |
@@ -164,7 +164,7 @@ tp logs [-n 50] [-f]
 
 | 报错 | 含义与处理 |
 |---|---|
-| `配对码不完整：缺…` | 配对链接截断了。整条复制 `tunnelport://REDACTED `tp status --show-pairing` 取回 |
+| `配对码不完整：缺…` | 配对链接截断了。整条复制 `tunnelport://…#TOKEN`，或服务端 `tp status --show-pairing` 取回 |
 | `token 不匹配，重新复制` | token 应为 52 位大写字母和数字；重新复制配对链接 |
 | `端口 N 绑定失败` | 显式指定的端口被占用。换端口或释放占用（`--port-base` 显式指定不会自动换） |
 | `PATH 中未找到 rathole` | `--engine rathole` 需要单独下载 rathole，用 `--rathole` 指定路径（见 [GUIDE](GUIDE.md) 逃生舱一节） |

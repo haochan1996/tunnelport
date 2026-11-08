@@ -1,6 +1,6 @@
 // tp-tray 桌面托盘：右下角图标显示连接状态，菜单提供 信息 / 配对码 / 开机自启。
 //
-//	tp-tray <tunnelport://REDACTED [--local-host IP] [--local-port N]
+//	tp-tray <tunnelport://配对链接> [--local-host IP] [--local-port N]
 //
 // 托盘本身内嵌隧道（自研引擎进程内直连），无需再开命令行；状态与 tp status 同源。
 package main
@@ -46,7 +46,7 @@ var (
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 || !strings.HasPrefix(args[0], tokenx.Scheme+"://") {
-		fmt.Println("用法: tp-tray <tunnelport://REDACTED [--local-host IP] [--local-port N]")
+		fmt.Println("用法: tp-tray <tunnelport://配对链接> [--local-host IP] [--local-port N]")
 		fmt.Println("（配对码可在 serve 端用 tp status --show-pairing 取回）")
 		os.Exit(1)
 	}

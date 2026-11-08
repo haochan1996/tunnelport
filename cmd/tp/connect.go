@@ -41,12 +41,12 @@ func connectCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			t := flagToken
 			if t == "" && len(args) > 0 {
-				t = args[0] // 允许位置参数：tp connect tunnelport://REDACTED
+				t = args[0] // 允许位置参数：tp connect tunnelport://…
 			}
 			return runConnect(t, flagHost, flagPort, flagLocal, flagLocalHost, flagBin, flagTransport, flagTerm, flagEngine)
 		},
 	}
-	cmd.Flags().StringVar(&flagToken, "token", os.Getenv("TP_TOKEN"), "token 或完整配对 URL（tunnelport://REDACTED
+	cmd.Flags().StringVar(&flagToken, "token", os.Getenv("TP_TOKEN"), "token 或完整配对 URL（tunnelport://host:port?fp=证书指纹#token）")
 	cmd.Flags().StringVar(&flagHost, "host", "", "中继地址（用纯 token 时必填）")
 	cmd.Flags().IntVar(&flagPort, "port", envInt("TP_CONTROL_PORT", 0), "中继控制端口（URL 里自带，纯 token 时必填）")
 	cmd.Flags().IntVar(&flagLocal, "local-port", 6768, "Orca 端口")
