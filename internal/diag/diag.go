@@ -41,17 +41,31 @@ func Local(port int) Result {
 	return r
 }
 
-// Relay 检查 B 段：中继控制端口是否可达。
+// Relay 检查 B 段：中继可达性 —— TCP 与 TLS 双层探测（复杂环境鲁棒性：
+// 两者分别能定位"防火墙没放行"与"代理/设备掐 TLS"这两类不同问题）。
 func Relay(host string, controlPort int) Result {
 	r := Result{Seg: "B", Name: "中继可达"}
 	rtt, err := detect.TCPRtt(host, controlPort, 3*time.Second)
-	if err == nil {
-		r.Pass = true
-		r.Fact = fmt.Sprintf("%s:%d 可达（%dms）", host, controlPort, rtt.Milliseconds())
-	} else {
-		r.Fact = fmt.Sprintf("连不上 %s:%d", host, controlPort)
-		r.Action = fmt.Sprintf("检查云厂商安全组 / 防火墙是否放行 TCP %d", controlPort)
+	if err != nil {
+		kind, hint := detect.ClassifyNetErr(err)
+		r.Fact = fmt.Sprintf("TCP 不通 %s:%d（%s）", host, controlPort, kind)
+		if kind == "timeout" || kind == "refused" {
+			r.Action = fmt.Sprintf("%s；本例重点检查安全组 / 防火墙放行 TCP %d", hint, controlPort)
+		} else {
+			r.Action = hint
+		}
+		return r
 	}
+	fp, err := detect.TLSDial(host, controlPort)
+	if err != nil {
+		kind, hint := detect.ClassifyNetErr(err)
+		r.Fact = fmt.Sprintf("TCP 通（%dms）但 TLS 握手失败（%s）", rtt.Milliseconds(), kind)
+		r.Action = hint
+		return r
+	}
+	_ = fp
+	r.Pass = true
+	r.Fact = fmt.Sprintf("%s:%d 可达（%dms，TLS ✓）", host, controlPort, rtt.Milliseconds())
 	return r
 }
 

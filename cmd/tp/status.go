@@ -22,7 +22,7 @@ func statusCmd() *cobra.Command {
 				return nil
 			}
 			fmt.Printf("角色:      %s\n", s.Role)
-			fmt.Printf("入口地址:  %s\n", s.Entry)
+			fmt.Printf("\n入口地址（复制后粘贴到 Orca 桌面端「自定义网络地址」）:\n   %s\n", s.Entry)
 			fmt.Printf("控制通道:  %s\n", s.Control)
 			fmt.Printf("token 指纹: %s\n", s.TokenFP)
 			fmt.Printf("版本:      %s\n", s.Version)

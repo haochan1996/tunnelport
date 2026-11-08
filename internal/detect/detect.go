@@ -3,11 +3,16 @@ package detect
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -174,4 +179,39 @@ func PickPort(preferred int) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("30000–40000 内连续 %d 个端口都不可用，请手动指定 --port", maxTries)
+}
+
+// ClassifyNetErr 把网络错误分类为四种用户可理解的场景（鲁棒性设计：复杂环境）。
+// 返回 (类别, 针对性建议)。类别：timeout / refused / reset / handshake / unknown。
+func ClassifyNetErr(err error) (string, string) {
+	if err == nil {
+		return "ok", ""
+	}
+	es := err.Error()
+	switch {
+	case strings.Contains(es, "timeout") || strings.Contains(es, "deadline exceeded"):
+		return "timeout", "请求在网络上被丢弃：多为防火墙/安全组未放行该端口，或运营商拦截。检查服务器防火墙放行后重试"
+	case strings.Contains(es, "refused"):
+		return "refused", "端口没有服务在听：确认 tp serve 正在运行（tp status），且端口与配对码一致"
+	case strings.Contains(es, "reset") || strings.Contains(es, "aborted") || strings.Contains(es, "EOF"):
+		return "reset", "连接被网络设备重置：大概率是代理/防火墙干扰（如 Clash/V2Ray 的 TUN 模式）。若本机走代理，请为服务器 IP 添加 DIRECT 直连规则后重试"
+	default:
+		return "handshake", "TLS 握手被干扰：特征与代理/防火墙按客户端特征拦截一致。若使用代理软件，为服务器 IP 添加 DIRECT 直连规则；或换网络（如手机热点）验证"
+	}
+}
+
+// TLSDial 仅做 TLS 握手，返回对端证书指纹。
+func TLSDial(host string, port int) (string, error) {
+	d := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 5 * time.Second}, Config: &tls.Config{InsecureSkipVerify: true}}
+	conn, err := d.DialContext(context.Background(), "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	if err != nil {
+		return "", err
+	}
+	state := conn.(*tls.Conn).ConnectionState()
+	_ = conn.Close()
+	if len(state.PeerCertificates) == 0 {
+		return "", errors.New("对端未出示证书")
+	}
+	h := sha256.Sum256(state.PeerCertificates[0].Raw)
+	return hex.EncodeToString(h[:]), nil
 }
