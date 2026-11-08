@@ -22,16 +22,14 @@ esac
 echo "==> [1/4] 下载 tunnelport ${VERSION}（${ASSET}）"
 DL="${TP_DOWNLOAD_URL:-${BASE_URL}/${ASSET}}"
 TMP="/tmp/tp-install-$$"
+# 国内直连 GitHub 不稳定：主源与镜像都限总时长，避免下载卡死
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL --connect-timeout 15 "$DL" -o "$TMP" 2>/dev/null \
-    || curl -fsSL --connect-timeout 15 "https://gh-proxy.com/${DL}" -o "$TMP" \
-    || { echo "✗ 下载失败（含镜像）。可手动下载 ${DL} 后重试"; exit 1; }
+  curl -fsSL --connect-timeout 10 --max-time 120 "$DL" -o "$TMP" 2>/dev/null     || { echo "    主源较慢，切换国内镜像…"; curl -fsSL --connect-timeout 10 --max-time 180 "https://gh-proxy.com/${DL}" -o "$TMP" 2>/dev/null; }     || { echo "✗ 下载失败（主源+镜像均不通）。请手动下载：${DL}"; exit 1; }
 elif command -v wget >/dev/null 2>&1; then
-  wget -q -T 15 -O "$TMP" "$DL" \
-    || wget -q -T 15 -O "$TMP" "https://gh-proxy.com/${DL}" \
-    || { echo "✗ 下载失败（含镜像）。可手动下载 ${DL} 后重试"; exit 1; }
+  wget -q -T 10 -t 2 --timeout=120 -O "$TMP" "$DL"     || { echo "    主源较慢，切换国内镜像…"; wget -q -T 10 -t 2 --timeout=180 -O "$TMP" "https://gh-proxy.com/${DL}"; }     || { echo "✗ 下载失败（主源+镜像均不通）。请手动下载：${DL}"; exit 1; }
 else
-  echo "✗ 需要 curl 或 wget"; exit 1
+  echo "✗ 需要 curl 或 wget"
+  exit 1
 fi
 chmod +x "$TMP"
 
