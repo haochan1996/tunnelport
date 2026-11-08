@@ -8,18 +8,22 @@ RATHOLE="/usr/local/bin/rathole"
 
 case "${TP_ROLE}" in
   serve)
-    # 容器内端口映射必须预先确定：TP_PORT 必填（FR-2.5）
-    if [ -z "${TP_PORT}" ]; then
-      echo "错误：容器模式必须设置 TP_PORT。示例："
+    # 容器内端口映射必须预先确定（FR-2.5）：优先基座三连 TP_PORT_BASE（推荐，防火墙放行一段），
+    # 或单独指定 TP_PORT。
+    if [ -z "${TP_PORT_BASE}" ] && [ -z "${TP_PORT}" ]; then
+      echo "错误：容器模式必须指定端口。推荐基座三连（防火墙放行 30123-30125 一段）："
       echo "  docker run -d --restart unless-stopped \\"
-      echo "    -e TP_ROLE=serve -e TP_PORT=30123 -e TP_TOKEN=<52位token> \\"
-      echo "    -p 30123:30123 -p 6768:6768 -p 6769:6769 \\"
-      echo "    -v tp-state:/root/.tunnelport tunnelport"
+      echo "    -e TP_ROLE=serve -e TP_PORT_BASE=30123 -e TP_TOKEN=<52位token> \\"
+      echo "    -p 30123-30125:30123-30125 -v tp-state:/root/.tunnelport tunnelport"
       exit 1
     fi
-    set -- serve --bind "${TP_BIND:-0.0.0.0}" --port "${TP_PORT}" --rathole "$RATHOLE"
+    set -- serve --bind "${TP_BIND:-0.0.0.0}" --rathole "$RATHOLE"
+    if [ -n "${TP_PORT_BASE}" ]; then
+      set -- "$@" --port-base "${TP_PORT_BASE}"
+    else
+      set -- "$@" --port "${TP_PORT}"
+    fi
     [ -n "${TP_TOKEN}" ] && set -- "$@" --token "${TP_TOKEN}"
-    [ -n "${TP_PUBLIC_PORT}" ] && set -- "$@" --public-port "${TP_PUBLIC_PORT}"
     [ -n "${TP_ENTRY_HOST}" ] && set -- "$@" --entry-host "${TP_ENTRY_HOST}"
     exec "$TP" "$@"
     ;;

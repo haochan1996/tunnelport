@@ -131,6 +131,27 @@ func NextFreePort(preferred int, avoid ...int) int {
 	return 0
 }
 
+// NextFreeBase 从 start 起，找连续 width 个可用端口的块起始值（逐个跳过黑名单、
+// 逐个 CanListen 检查），最多滑移 20 次；用于"三连端口"整块分配（FR-2.3）。
+// 找不到返回 0。
+func NextFreeBase(start, width int) int {
+	for i := 0; i < 20; i++ {
+		base := start + i
+		ok := true
+		for j := 0; j < width; j++ {
+			p := base + j
+			if p > 65535 || blacklist[p] || CanListen(net.JoinHostPort("0.0.0.0", strconv.Itoa(p))) != nil {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return base
+		}
+	}
+	return 0
+}
+
 // PickPort 选控制通道端口（PRD §10.4）。
 // preferred > 0 时先试用户指定；否则在 30000–40000 随机试最多 5 个。
 func PickPort(preferred int) (int, error) {

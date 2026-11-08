@@ -124,17 +124,31 @@ func TOFUProbe(host string, port int, expectFp, dir string) (string, error) {
 		NetDialer: &net.Dialer{Timeout: 5 * time.Second}, // 防防火墙 DROP 时永久挂起（稳定性审查 #1）
 		Config:    &tls.Config{InsecureSkipVerify: true}, //nolint:gosec —— 目的就是先取证书再人工比对
 	}
-	conn, err := d.DialContext(context.Background(), "tcp", fmt.Sprintf("%s:%d", host, port))
-	if err != nil {
-		return "", fmt.Errorf("TLS 探测失败: %w（对端旧版本未开 TLS 可 --transport tcp 回退；若配对码里的地址不对（如代理网络），用 --host 覆盖）", err)
+	addr := fmt.Sprintf("%s:%d", host, port)
+	var cert *x509.Certificate
+	var lastErr error
+	// 握手偶发 EOF（服务端 accept 线程竞态，2026-11-08 实测）：重试 3 次，间隔 800ms
+	for attempt := 1; attempt <= 3; attempt++ {
+		conn, err := d.DialContext(context.Background(), "tcp", addr)
+		if err != nil {
+			lastErr = err
+			time.Sleep(800 * time.Millisecond)
+			continue
+		}
+		tlsConn := conn.(*tls.Conn)
+		state := tlsConn.ConnectionState()
+		_ = conn.Close()
+		if len(state.PeerCertificates) == 0 {
+			lastErr = errors.New("对端未出示证书")
+			time.Sleep(800 * time.Millisecond)
+			continue
+		}
+		cert = state.PeerCertificates[0]
+		break
 	}
-	tlsConn := conn.(*tls.Conn)
-	state := tlsConn.ConnectionState()
-	_ = conn.Close()
-	if len(state.PeerCertificates) == 0 {
-		return "", errors.New("对端未出示证书")
+	if cert == nil {
+		return "", fmt.Errorf("TLS 探测失败: %w（对端旧版本未开 TLS 可 --transport tcp 回退；若配对码里的地址不对（如代理网络），用 --host 覆盖）", lastErr)
 	}
-	cert := state.PeerCertificates[0]
 	fp := Fingerprint(cert)
 	if expectFp != "" && fp != expectFp {
 		return "", fmt.Errorf("证书指纹不匹配（配对码 %s… / 实际 %s…），可能存在中间人，已中止", short(expectFp), short(fp))

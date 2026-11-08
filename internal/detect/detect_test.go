@@ -45,3 +45,31 @@ func TestPickPortPreferred(t *testing.T) {
 		t.Fatal("占用中的显式端口应报错")
 	}
 }
+
+func TestNextFreeBaseContiguous(t *testing.T) {
+	// 占住 17101，三连 17100-17102 不可整块 → 滑移
+	l, err := net.Listen("tcp", "0.0.0.0:17101")
+	if err != nil {
+		t.Skipf("无法占位: %v", err)
+	}
+	defer l.Close()
+	got := NextFreeBase(17100, 3)
+	if got != 17102 {
+		t.Fatalf("应滑移至 17102，实际 %d", got)
+	}
+}
+
+func TestNextFreeBaseFree(t *testing.T) {
+	got := NextFreeBase(17200, 3)
+	if got != 17200 {
+		t.Fatalf("空闲时应原样返回 17200，实际 %d", got)
+	}
+}
+
+func TestNextFreeBaseBlacklist(t *testing.T) {
+	// 5000 在黑名单 → 整块跳过
+	got := NextFreeBase(5000, 3)
+	if got < 5001 {
+		t.Fatalf("应跳过黑名单起始，实际 %d", got)
+	}
+}
