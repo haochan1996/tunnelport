@@ -208,8 +208,7 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 `, version, address.EntryURL(entryHost, publicPort), token, config.Fingerprint(token), certFp)
 
 	fmt.Printf(`
- 下一步
-   电脑上执行:
+ 下一步（桌面机）:
      tp connect --token %s --host %s
 
    手机浏览器（4G）打开验证外部可达:
@@ -222,7 +221,7 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
    （控制通道 / Orca 服务 / 健康端点）
 ──────────────────────────────────────────────────
 
-配对二维码（手机相机直接扫）:
+配对链接二维码（桌面机复制链接或扫码后运行 tp connect）:
 %s
 `, token, entryHost, address.HealthURL(entryHost, healthPort), tokenx.PairURL(entryHost, ctrl, token, certFp, publicPort), ctrl, healthPort, address.RenderQR(tokenx.PairURL(entryHost, ctrl, token, certFp, publicPort)))
 
