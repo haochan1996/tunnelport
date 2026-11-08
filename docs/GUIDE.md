@@ -182,7 +182,7 @@ macOS / Windows：Releases 直接下载，命令相同（`tp serve` / `tp connec
 <summary>开机自启（电脑端）</summary>
 
 - Linux：systemd user unit（`loginctl enable-linger`）
-- macOS：launchd；Windows：计划任务（`tp service install` 规划中）
+- macOS：launchd；Windows：计划任务（桌面端设置里一键开关）
 
 </details>
 

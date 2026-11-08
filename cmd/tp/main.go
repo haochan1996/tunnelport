@@ -43,7 +43,7 @@ func main() {
 	}
 	root.SetVersionTemplate("tp {{.Version}}\n")
 
-	root.AddCommand(serveCmd(), connectCmd(), statusCmd(), doctorCmd(), logsCmd(), serviceCmd())
+	root.AddCommand(serveCmd(), connectCmd(), statusCmd(), doctorCmd(), logsCmd())
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "错误:", err.Error())
 		os.Exit(1)

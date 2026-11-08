@@ -27,7 +27,7 @@ curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
 ## 目录
 
 ```
-cmd/tp/               命令行：serve / connect / status / doctor / logs / service
+cmd/tp/               命令行：serve / connect / status / doctor / logs
 cmd/tp-app/           桌面端（webview 图形界面）
 internal/engine/      自研隧道引擎（rathole 为可选逃生舱）
 internal/config/      状态与 token 存储（~/.tunnelport）
@@ -51,7 +51,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/tp-linux ./cmd/tp
 python3 -m http.server 6768 --bind 127.0.0.1 &          # 假装 Orca
 ./tp serve --bind 127.0.0.1 --port-base 30100 --entry-host 127.0.0.1 &
 # 输出里有配对链接 tunnelport://REDACTED
-./tp connect '<配对链接>' --host 127.0.0.1
+./tp connect '<配对链接>'
 curl http://127.0.0.1:30101/          # 穿隧道 → 应看到 6768 的响应
 curl http://127.0.0.1:30102/health    # 健康端点 → OK rtt=..ms
 ./tp doctor --host 127.0.0.1

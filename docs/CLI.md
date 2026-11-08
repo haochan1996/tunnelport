@@ -11,7 +11,6 @@
 | `tp status` | 查看状态、取回配对链接 | 任意 |
 | `tp doctor` | 五段诊断，定位卡在哪一环 | 任意 |
 | `tp logs` | 查看引擎日志 | 任意 |
-| `tp service` | 安装 / 卸载开机自启 | 电脑 |
 
 ---
 
@@ -148,15 +147,6 @@ tp logs [-n 50] [-f]
 | `-f, --follow` | 关 | 持续跟踪（类似 `tail -f`） |
 
 日志仅存本机（`~/.tunnelport/engine.log`），不上传。
-
-## tp service
-
-```sh
-tp service install     # 注册开机自启
-tp service uninstall   # 移除开机自启
-```
-
----
 
 ## 环境变量对照
 
