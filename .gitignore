@@ -1,4 +1,8 @@
 # 构建产物
+/tp
+/tp-app
+/tunnelport
+/tunnelport-app
 /bin/
 /dist/
 *.exe
