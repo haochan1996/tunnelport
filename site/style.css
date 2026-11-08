@@ -694,6 +694,16 @@ a:focus-visible {
   color: var(--ink-2);
 }
 
+/* --------------------------------------------------------- donate ------ */
+
+.donate__qr {
+  width: 100%;
+  max-width: 420px;
+  display: block;
+  border-radius: var(--r2);
+  border: 1px solid var(--line);
+}
+
 /* ------------------------------------------------------------- faq ------ */
 
 .faq {

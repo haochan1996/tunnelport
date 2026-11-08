@@ -69,6 +69,7 @@ go test ./...
 ## 文档
 
 - 站点：https://haochan1996.github.io/tunnelport/
+- **部署与使用指南**：[docs/GUIDE.md](docs/GUIDE.md)
 - 技术决策记录：[docs/DECISIONS.md](docs/DECISIONS.md)
 - 产品需求与商业决策：内部文档，不公开
 
