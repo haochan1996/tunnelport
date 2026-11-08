@@ -54,7 +54,7 @@ jobs:
       - name: SHA256SUMS
         run: |
           cd dist
-          sha256sum tp_* | tee SHA256SUMS
+          sha256sum tp_* tunnelport_* | tee SHA256SUMS
       # 注意：rathole 自构建（D-1）在 W1.5 接入；当前资产只含 tp，
       # 安装脚本先要求用户自备 rathole 或从上游下载（scripts/fetch-rathole.*）。
       - name: Publish to public repo
