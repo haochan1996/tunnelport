@@ -10,6 +10,7 @@ internal/config/      状态存储（~/.tunnelport，token 只存指纹）
 internal/tokenx/      token 生成 / 配对 URL 解析
 internal/detect/      出口 IP、CGNAT、端口探测（FR-1）
 internal/engine/      Engine 接口 + rathole 实现（临时配置 + 保活重启）
+# 逃生舱用法（普通用户不需要）：docs/GUIDE.md「rathole 逃生舱」一节
 internal/address/     入口地址 / 二维码
 internal/diag/        tp doctor 五段诊断
 .github/workflows/    release.yml：打 tag → 多平台构建 → 推 Release 到公开仓

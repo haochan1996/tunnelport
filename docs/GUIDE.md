@@ -86,6 +86,64 @@ tp connect <同一个配对链接>
 
 ---
 
+## 高级 · rathole 逃生舱（应急用，平时不需要）
+
+tunnelport 默认用**自研引擎**——无杀软特征、单二进制，日常场景足够。
+**rathole 逃生舱**是备用引擎，只在极端排查时用（例如怀疑自研引擎本身有 bug，
+需要换一个引擎做对照排除）。**普通用户不需要、也不建议使用**：rathole 二进制带
+`HackTool/Rathole.a` 专杀特征，腾讯管家等杀软会直接删除（见 [杀软误杀手册](AV.md)）。
+
+### 什么时候才用
+
+- `tp doctor` 显示中继 / 隧道段异常，且网络和服务器都确认没问题，需要对照排除引擎因素
+- 与还在跑 rathole 引擎的旧版本做互通排查
+
+### 使用前必读
+
+1. **两端必须同时切换**：自研引擎与 rathole 协议不通，serve 和 connect 不能混用
+2. **需要单独下载 rathole 二进制**（v0.5.0 固定版本）——tunnelport 不内嵌它：
+   内嵌会被杀软的专杀特征连带标记整个程序
+3. **配对链接不变**：切换引擎不换 token，不需要重新配对
+
+### 第 1 步 · 准备 rathole 二进制
+
+从 [rathole 官方发布页](https://github.com/rathole-org/rathole/releases/tag/v0.5.0) 下载 v0.5.0：
+
+| 平台 | 文件 |
+|---|---|
+| Linux x86_64 | `rathole-x86_64-unknown-linux-gnu.zip` |
+| Linux ARM64 | `rathole-aarch64-unknown-linux-musl.zip`（静态编译，各发行版通用） |
+| macOS（Apple 芯片） | 官方 v0.5.0 未提供原生构建：用 Intel 版（下面一行，Rosetta 2 转译运行）或自行编译 |
+| macOS（Intel） | `rathole-x86_64-apple-darwin.zip` |
+| Windows | `rathole-x86_64-pc-windows-msvc.zip` —— 会被杀软删除，**建议在 WSL 里运行** |
+
+解压得到 `rathole`（Windows 是 `rathole.exe`），放到任意目录，记下完整路径。
+仓库里的 `scripts/fetch-rathole.sh` 可一键下载（Linux / macOS）。
+
+### 第 2 步 · 两端都切换
+
+```sh
+# VPS（serve）：在原有参数上追加 --engine rathole --rathole <rathole 路径>
+tp serve --port-base 30000 --engine rathole --rathole /usr/local/bin/rathole
+
+# 电脑（connect）：同样追加两个参数
+tp connect <配对链接> --engine rathole --rathole /home/you/tools/rathole
+```
+
+- **用 systemd 管理 serve 的**：把这两个参数加进 unit 的 `ExecStart`，
+  然后 `sudo systemctl daemon-reload && sudo systemctl restart tunnelport`
+- **用桌面 GUI 的**：GUI 暂不支持切换引擎（设置里的 rathole 选项为灰）。
+  要走逃生舱就用命令行 `tp connect`，并先把 GUI 的隧道「暂停」或退出 GUI，
+  避免本地端口被 GUI 的连接占用
+- **找不到 rathole 时**程序会报错提示 `--rathole` 指定路径，不会静默失败
+
+### 切回自研（默认）
+
+去掉 `--engine rathole --rathole …` 这两个参数重启即可，同样不用重新配对。
+rathole 只是应急对照用的"逃生舱"，用完就切回来。
+
+---
+
 ## 其他安装方式
 
 <details>

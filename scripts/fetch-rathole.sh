@@ -7,7 +7,7 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 case "$OS/$ARCH" in
   Linux/x86_64)  A="rathole-x86_64-unknown-linux-gnu.zip" ;;
-  Darwin/arm64)  A="rathole-aarch64-apple-darwin.zip" ;;
+  Darwin/arm64)  A="rathole-x86_64-apple-darwin.zip"; echo "注意：官方无 arm64 版，下载 Intel 版（Rosetta 2 运行）" >&2 ;;
   Darwin/x86_64) A="rathole-x86_64-apple-darwin.zip" ;;
   *) echo "平台 $OS/$ARCH 请手动从 https://github.com/$REPO/releases 下载" >&2; exit 1 ;;
 esac
