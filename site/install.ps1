@@ -14,7 +14,7 @@ $version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v0.1.2" }
 $role = if ($env:TP_ROLE) { $env:TP_ROLE } else { "serve" }
 $url = $env:TP_URL
 if ($role -eq "connect" -and -not $url) {
-    Write-Host "✗ 连接模式需要配对链接：  `$env:TP_URL='tunnelport://REDACTED 后重跑"
+    Write-Host "✗ 连接模式需要配对链接：  `$env:TP_URL='tunnelport://…' 后重跑"
     exit 1
 }
 

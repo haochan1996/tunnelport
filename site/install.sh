@@ -2,7 +2,7 @@
 # tunnelport 安装脚本（一键部署 / 一键连接）
 #
 #   VPS 入口（serve）：  curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
-#   桌面连接（connect）：curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh -s -- connect tunnelport://REDACTED
+#   桌面连接（connect）：curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh -s -- connect tunnelport://<配对链接>
 #
 # 兼容：Linux x86_64/arm64（systemd 或无 systemd）、macOS x86_64/arm64（launchd）。
 # Windows：Releases 直接下载 tp.exe，或在 WSL 中运行本脚本。
@@ -18,7 +18,7 @@ if [ "${1:-}" = "connect" ]; then
   ROLE="connect"
   CONNECT_URL="${2:-}"
   if [ -z "$CONNECT_URL" ]; then
-    echo "✗ 连接模式需要配对链接：sh -s -- connect tunnelport://REDACTED exit 1
+    echo "✗ 连接模式需要配对链接：sh -s -- connect tunnelport://…"; exit 1
   fi
 fi
 

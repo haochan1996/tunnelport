@@ -14,7 +14,7 @@
 #
 # 用法（connect，客户端）:
 #   docker run -d --name tp-connect --restart unless-stopped \
-#     -e TP_TOKEN=<tunnelport://REDACTED 完整配对URL> \
+#     -e TP_TOKEN=<tunnelport://host:port#token 完整配对URL> \
 #     -v tp-state:/root/.tunnelport \
 #     tunnelport:latest
 FROM ubuntu:24.04

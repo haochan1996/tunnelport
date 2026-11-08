@@ -29,7 +29,7 @@ case "${TP_ROLE}" in
     ;;
   connect)
     if [ -z "${TP_TOKEN}" ]; then
-      echo "错误：需要 TP_TOKEN（完整配对 URL：tunnelport://REDACTED
+      echo "错误：需要 TP_TOKEN（完整配对 URL：tunnelport://host:port#token）"
       exit 1
     fi
     set -- connect --token "${TP_TOKEN}" --rathole "$RATHOLE"
