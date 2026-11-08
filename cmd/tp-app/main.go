@@ -24,6 +24,7 @@ import (
 
 	"github.com/haochan1996/tunnelport/internal/certs"
 	"github.com/haochan1996/tunnelport/internal/detect"
+	"github.com/haochan1996/tunnelport/internal/diag"
 	"github.com/haochan1996/tunnelport/internal/engine"
 	"github.com/haochan1996/tunnelport/internal/tokenx"
 )
@@ -47,6 +48,8 @@ type appState struct {
 	phone    string
 	health   string
 	fp       string
+	diagHost string
+	diagCtrl int
 	localMap string
 
 	eng        engine.Engine
@@ -139,6 +142,8 @@ func begin(url string) error {
 	s.phone = fmt.Sprintf("%s:%d", p.Host, p.Public)
 	s.health = fmt.Sprintf("http://%s:%d/health", p.Host, p.Public+1)
 	s.fp = p.FP
+	s.diagHost = p.Host
+	s.diagCtrl = p.Control
 	s.setupMode = false
 	s.status = "连接中…"
 	runDoctor()
@@ -565,17 +570,35 @@ func runDoctor() {
 	} else {
 		r[0] = doctorRow{"本地", "6768 无监听 · Orca 好像没启动", "失败", "—"}
 	}
+	// B 中继：真实 TCP + TLS 双层探测（diag.Relay）
+	if s.diagHost != "" {
+		rr := diag.Relay(s.diagHost, s.diagCtrl)
+		stWord, reading := "通过", "TLS ✓"
+		if !rr.Pass {
+			stWord, reading = "失败", "—"
+		}
+		r[1] = doctorRow{"中继", rr.Fact, stWord, reading}
+	}
+	// C 鉴权：TOFU 指纹比对结果 + 引擎状态
+	// D 隧道：引擎真实运行时长与重连数
 	if s.eng != nil {
 		st := s.eng.Status()
 		if st.State == engine.Connected {
-			r[1] = doctorRow{"中继", s.phone + " 可达 · 三次握手正常", "通过", "41 ms"}
-			r[2] = doctorRow{"鉴权", "token 接受 · 证书指纹与配对码一致", "通过", "TOFU"}
-			r[3] = doctorRow{"隧道", "TLS 已建立 · 上下行转发中 · 无丢包", "通过", time.Since(s.started).Truncate(time.Minute).String()}
+			if s.fp != "" {
+				r[2] = doctorRow{"鉴权", "token 接受 · 证书指纹与配对码一致", "通过", "TOFU"}
+			}
+			r[3] = doctorRow{"隧道", fmt.Sprintf("TLS 已建立 · 24h 内重连 %d 次 · 上下行转发中", s.reconnects), "通过", time.Since(s.started).Truncate(time.Minute).String()}
 		} else {
-			r[1] = doctorRow{"中继", "连接异常 · " + st.Reason, "失败", "—"}
+			r[2] = doctorRow{"鉴权", "未建立会话 · " + st.Reason, "待验", "—"}
+			r[3] = doctorRow{"隧道", "会话未建立", "待验", "—"}
 		}
 	}
-	r[4] = doctorRow{"外部", "中继健康端点 OK · 待手机端外部验证", "待验", strconv.Itoa(engine.HealthPort)}
+	// E 外部：本机自检健康端点（外部仍需手机 4G）
+	hc := "本机自检 OK · 待手机 4G 外部验证"
+	if _, err := detect.TCPRtt(s.diagHost, engine.HealthPort, 2*time.Second); err != nil {
+		hc = "健康端点未响应 · 检查隧道是否建立"
+	}
+	r[4] = doctorRow{"外部", hc, "待验", strconv.Itoa(engine.HealthPort)}
 	s.doctorRows = r
 	s.doctorAt = time.Now()
 	s.doctorDur = time.Since(t0)
