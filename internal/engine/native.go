@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -102,12 +103,50 @@ func pipe(a, b net.Conn) {
 
 // ---------- 引擎实现 ----------
 
+// slotMan 服务端端口槽分配器：每个连接独占一个槽（2 个公开端口）。
+type slotMan struct {
+	mu   sync.Mutex
+	used map[int]bool
+	max  int // 0 = 不限
+}
+
+func (m *slotMan) alloc() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.used == nil {
+		m.used = map[int]bool{}
+	}
+	for k := 0; m.max == 0 || k < m.max; k++ {
+		if !m.used[k] {
+			m.used[k] = true
+			return k
+		}
+	}
+	return -1
+}
+
+func (m *slotMan) free(k int) {
+	m.mu.Lock()
+	m.used[k] = false
+	m.mu.Unlock()
+}
+
 type nativeEngine struct {
 	mu      sync.Mutex
 	status  Status
 	cancel  context.CancelFunc
 	started time.Time
 	stopped bool
+	ports   map[string]int // 服务端分配的实际公开端口
+	hint    map[string]int // URL 参考值（兼容旧服务端）
+}
+
+// portHint 返回 URL 参考端口。
+func (n *nativeEngine) portHint(name string) (int, bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	p, ok := n.hint[name]
+	return p, ok
 }
 
 // NewNative 返回自研引擎（默认引擎，D-14）。
@@ -136,6 +175,7 @@ func (n *nativeEngine) Status() Status {
 	defer n.mu.Unlock()
 	s := n.status
 	s.Uptime = since(n.started)
+	s.Ports = n.ports
 	return s
 }
 
@@ -203,10 +243,15 @@ func (n *nativeEngine) runServer(ctx context.Context, cfg Config) error {
 	defer ln.Close()
 	go func() { <-ctx.Done(); _ = ln.Close() }()
 
-	ports := map[string]int{}
+	// 端口槽基准：orca 的 PublicPort 是设备 0 的 orca 口（三连 base+1），
+	// 每设备占 2 口（orca/health）。设备 k：orca=base+2k，health=+1。
+	pubBase := 0
 	for _, s := range cfg.Services {
-		ports[s.Name] = s.PublicPort
+		if s.Name == ServiceOrca {
+			pubBase = s.PublicPort
+		}
 	}
+	sm := &slotMan{max: cfg.Devices}
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -215,11 +260,11 @@ func (n *nativeEngine) runServer(ctx context.Context, cfg Config) error {
 			}
 			return err
 		}
-		go n.serveConn(ctx, conn, cfg, ports)
+		go n.serveConn(ctx, conn, cfg, sm, pubBase)
 	}
 }
 
-func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config, ports map[string]int) {
+func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config, sm *slotMan, pubBase int) {
 	defer conn.Close()
 	nlog("serve: 入站连接 %s，TLS 掉手中", conn.RemoteAddr())
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
@@ -236,9 +281,24 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	}
 	nlog("serve: 客户端 %s 已鉴权，注册服务 %v", conn.RemoteAddr(), hs.Services)
 	_ = conn.SetDeadline(time.Time{})
-	if err := writeFrame(conn, []byte("OK")); err != nil {
+
+	// 分配端口槽并把实际入口端口告知客户端（多设备核心）
+	slot := sm.alloc()
+	if slot < 0 {
+		_ = writeFrame(conn, []byte(`{"err":"设备数已满"}`))
+		nlog("serve: 设备槽已满，拒绝 %s", conn.RemoteAddr())
 		return
 	}
+	defer sm.free(slot)
+	assigned := map[string]int{
+		ServiceOrca:   pubBase + 2*slot,
+		ServiceHealth: pubBase + 2*slot + 1,
+	}
+	resp, _ := json.Marshal(assigned)
+	if err := writeFrame(conn, resp); err != nil {
+		return
+	}
+	nlog("serve: 分配端口槽 #%d → %v", slot, assigned)
 
 	sess, err := smux.Server(conn, muxCfg())
 	if err != nil {
@@ -253,7 +313,7 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 		}
 	}()
 	for _, name := range hs.Services {
-		p, ok := ports[name]
+		p, ok := assigned[name]
 		if !ok {
 			continue
 		}
@@ -311,6 +371,17 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 
 // runClient：connect 侧 —— 拨出、鉴权、按流拨本地。
 func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
+	// URL 参考端口（服务端为旧版本时回退显示用）
+	n.mu.Lock()
+	if n.hint == nil {
+		n.hint = map[string]int{}
+	}
+	for _, s := range cfg.Services {
+		if s.PublicPort > 0 {
+			n.hint[s.Name] = s.PublicPort
+		}
+	}
+	n.mu.Unlock()
 	tlsCfg, err := clientTLSConfig(cfg.CertRoot)
 	if err != nil {
 		return err
@@ -339,10 +410,24 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	if string(resp) != "OK" {
-		nlog("client: 鉴权被拒")
-		return errNativeAuth
+	if strings.HasPrefix(string(resp), "{") && strings.Contains(string(resp), "err") {
+		nlog("client: 被拒（%s）", resp)
+		return fmt.Errorf("服务端拒绝：%s", resp)
 	}
+	assigned := map[string]int{}
+	if strings.HasPrefix(string(resp), "{") {
+		_ = json.Unmarshal(resp, &assigned)
+	}
+	if len(assigned) == 0 {
+		// 兼容旧响应 OK：退回 URL 里的端口
+		if p, ok := n.portHint(ServiceOrca); ok {
+			assigned[ServiceOrca] = p
+		}
+	}
+	n.mu.Lock()
+	n.ports = assigned
+	n.mu.Unlock()
+	nlog("client: 已分配端口 %v", assigned)
 	nlog("client: 鉴权通过，服务 %v", names)
 
 	sess, err := smux.Client(conn, muxCfg())

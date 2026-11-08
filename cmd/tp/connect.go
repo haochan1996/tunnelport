@@ -173,10 +173,16 @@ func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagLocalHos
 	}
 
 	// 健康端点（FR-7.3 / D-3）：只回状态，不回业务数据。
+	// 健康端点本地监听：自动避让占用端口（Orca 等本机应用常占 6768/6769 附近，
+	// 端口冲突不应导致启动失败——鲁棒性设计）
 	healthLn, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(engine.HealthPort)))
 	if err != nil {
-		return fmt.Errorf("健康端点端口 %d 被占用: %w", engine.HealthPort, err)
+		healthLn, err = net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("健康端点监听失败: %w", err)
+		}
 	}
+	healthLocal := healthLn.Addr().String()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		rtt, derr := detect.TCPRtt(host, port, 2*time.Second)
@@ -200,7 +206,7 @@ func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagLocalHos
 		CertRoot:   certRoot,
 		Services: []engine.Service{
 			svcOrca,
-			{Name: engine.ServiceHealth, LocalAddr: net.JoinHostPort("127.0.0.1", strconv.Itoa(engine.HealthPort))},
+			{Name: engine.ServiceHealth, LocalAddr: healthLocal},
 		},
 	}
 	eng := newEngine(flagEngine)
@@ -222,7 +228,18 @@ func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagLocalHos
 		PID:     os.Getpid(),
 	})
 
-	phoneAddr := fmt.Sprintf("%s:%d", host, p.Public)
+	phonePort := p.Public
+	// 多设备：等待服务端分配实际端口（约 3s），优先显示实际入口
+	for i := 0; i < 30; i++ {
+		if st := eng.Status(); st.Ports != nil {
+			if v, ok := st.Ports[engine.ServiceOrca]; ok && v > 0 {
+				phonePort = v
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	phoneAddr := fmt.Sprintf("%s:%d", host, phonePort)
 	if flagTerm {
 		phoneAddr = "https://" + phoneAddr // 端到端模式：手机走 https
 	}

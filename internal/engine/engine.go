@@ -25,6 +25,9 @@ type Status struct {
 	Reason string
 	Hint   string
 	Uptime time.Duration
+	// Ports 是服务端分配给本会话的公开端口（多设备：每个连接一段）。
+	// 键为服务名（orca / tp-health）。客户端在握手后填充。
+	Ports map[string]int
 }
 
 // Service 是一条端口映射。
@@ -45,6 +48,10 @@ type Config struct {
 	Services    []Service
 	RatholeBin  string
 	TempDir     string // 留空则自动建临时目录（FR-2.1：进程退出即清理）
+
+	// Devices 是服务端允许的最大设备数（0=不限，自动分配端口槽）。
+	// 每个连接独占 2 个公开端口：设备 k 的 orca = PublicBase+2k，health = +1。
+	Devices int
 
 	// Transport: "tls"（默认，D-8 链路加密）或 "tcp"（对端旧版本回退）。
 	// tls 时 serve 需要 CertP12（PKCS#12），connect 需要 CertRoot（受信根 PEM）。

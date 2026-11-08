@@ -31,6 +31,7 @@ func serveCmd() *cobra.Command {
 		flagBin      string
 		flagEntry    string
 		flagPortBase int
+		flagDevices  int
 		flagEngine   string
 		flagRegen    bool
 	)
@@ -38,7 +39,7 @@ func serveCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "在有公网的机器上起中继，输出地址 / token / 二维码",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(flagPort, flagBind, flagToken, flagPublic, flagHealth, flagBin, flagEntry, flagPortBase, flagEngine, flagRegen)
+			return runServe(flagPort, flagBind, flagToken, flagPublic, flagHealth, flagBin, flagEntry, flagPortBase, flagDevices, flagEngine, flagRegen)
 		},
 	}
 	cmd.Flags().IntVar(&flagPort, "port", envInt("TP_PORT", 0), "控制通道端口（默认在 30000–40000 自动选）")
@@ -46,6 +47,7 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flagToken, "token", os.Getenv("TP_TOKEN"), "指定 token（默认自动生成）")
 	cmd.Flags().IntVar(&flagPublic, "public-port", envInt("TP_PUBLIC_PORT", 6768), "对外暴露的服务端口（手机连这个；被占用时自动顺延并提示）")
 	cmd.Flags().IntVar(&flagHealth, "health-port", envInt("TP_HEALTH_PORT", engine.HealthPort), "健康端点端口（高级覆盖，与 --port-base 互斥）")
+	cmd.Flags().IntVar(&flagDevices, "devices", envInt("TP_DEVICES", 0), "最大设备数（0=不限）：每台电脑占 2 个端口，自动分配入口")
 	cmd.Flags().IntVar(&flagPortBase, "port-base", envInt("TP_PORT_BASE", 0), "基座端口：三个端口连续占用 base/base+1/base+2（防火墙可放行一段）。显式指定被占用将报错。默认自动选择")
 	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（engine=rathole 时用）")
 	cmd.Flags().StringVar(&flagEngine, "engine", "native", "隧道引擎：native（默认，自研，杀软无特征）或 rathole")
@@ -54,7 +56,7 @@ func serveCmd() *cobra.Command {
 	return cmd
 }
 
-func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHealth int, flagBin, flagEntry string, flagPortBase int, flagEngine string, flagRegen bool) error {
+func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHealth int, flagBin, flagEntry string, flagPortBase int, flagDevices int, flagEngine string, flagRegen bool) error {
 	mustStateDir()
 
 	// 容器内端口必须显式给（FR-2.5）。
@@ -169,6 +171,7 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 		RatholeBin:  flagBin,
 		CertPem:     filepath.Join(dir, "cert.pem"),
 		CertKey:     filepath.Join(dir, "key.pem"),
+		Devices:     flagDevices,
 		Transport:   "tls",
 		CertP12:     filepath.ToSlash(filepath.Join(dir, "identity.p12")),
 		Services: []engine.Service{
