@@ -1,6 +1,6 @@
 #!/bin/sh
-# tunnelport 容器入口（FR-2.5）
-# 角色：TP_ROLE=serve | connect（默认 connect，PRD §6.1）
+# tunnelport 容器入口
+# 角色：TP_ROLE=serve | connect（默认 connect）
 set -e
 
 TP="/usr/local/bin/tp"
@@ -8,7 +8,7 @@ RATHOLE="/usr/local/bin/rathole"
 
 case "${TP_ROLE}" in
   serve)
-    # 容器内端口映射必须预先确定（FR-2.5）：优先基座三连 TP_PORT_BASE（推荐，防火墙放行一段），
+    # 容器内端口映射必须预先确定：优先基座三连 TP_PORT_BASE（推荐，防火墙放行一段），
     # 或单独指定 TP_PORT。
     if [ -z "${TP_PORT_BASE}" ] && [ -z "${TP_PORT}" ]; then
       echo "错误：容器模式必须指定端口。推荐基座三连（防火墙放行 30123-30125 一段）："

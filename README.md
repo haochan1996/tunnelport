@@ -1,56 +1,77 @@
-# tunnelport 内部仓库（私有）
+# tunnelport
 
-源码 + PRD + 发布流水线。**不公开**。公开仓是 [haochan1996/tunnelport](https://github.com/haochan1996/tunnelport)（站点 + Release 二进制）。
+把一台有公网的 VPS 变成 **Orca 手机端的稳定入口**——自托管 TCP 隧道，单二进制，MIT 开源。
+
+**VPS 一键部署 → Orca 桌面端粘贴地址 → 手机扫码即连。** 无需账号、无控制面、无埋点。
+
+## 下载
+
+- **桌面端（Windows / macOS / Linux）**：[Releases](https://github.com/haochan1996/tunnelport/releases/latest) —— 下载 `tunnelport_系统_架构`（Windows 是 `tunnelport_windows_amd64.exe`），双击即用
+- **服务端（VPS）**：一条命令安装
+
+```sh
+curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
+```
+
+完整图文指南见 **[docs/GUIDE.md](docs/GUIDE.md)**。
+
+## 特性
+
+- **自研隧道引擎**：TLS 链路加密 + token 鉴权 + 证书指纹防中间人（TOFU），无杀软特征（见 [docs/AV.md](docs/AV.md)）
+- **多设备**：一个配对链接，多台电脑自动分配独立入口端口
+- **五段诊断**：`tp doctor` 本地 → 中继 → 鉴权 → 隧道 → 外部，逐段判定卡在哪一环
+- **桌面端**：图形界面、托盘常驻、开机自启、断线自动重连、检查更新
+- **端到端加密**（`--tls-terminate`）：中继只见密文
+- 单二进制零依赖；systemd / launchd / Docker 开箱即用
 
 ## 目录
 
 ```
-cmd/tp/               CLI 入口：serve / connect / status / doctor / service
-internal/config/      状态存储（~/.tunnelport，token 只存指纹）
-internal/tokenx/      token 生成 / 配对 URL 解析
-internal/detect/      出口 IP、CGNAT、端口探测（FR-1）
-internal/engine/      Engine 接口 + rathole 实现（临时配置 + 保活重启）
-# 逃生舱用法（普通用户不需要）：docs/GUIDE.md「rathole 逃生舱」一节
-internal/address/     入口地址 / 二维码
-internal/diag/        tp doctor 五段诊断
-.github/workflows/    release.yml：打 tag → 多平台构建 → 推 Release 到公开仓
-scripts/              开发辅助脚本
+cmd/tp/               命令行：serve / connect / status / doctor / logs / service
+cmd/tp-app/           桌面端（webview 图形界面）
+internal/engine/      自研隧道引擎（rathole 为可选逃生舱）
+internal/config/      状态与 token 存储（~/.tunnelport）
+internal/certs/       证书生成与指纹（TOFU）
+internal/diag/        五段诊断
+site/                 产品站与一键安装脚本
+docs/                 使用指南 / 杀软说明 / 签名计划 / 设计决策
 ```
 
 ## 构建
 
 ```sh
 go build -o bin/tp ./cmd/tp
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/tp-linux ./cmd/tp
+go build -o bin/tunnelport ./cmd/tp-app
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/tp-linux ./cmd/tp
 ```
-
-rathole 从上游下载（开发用）：`./scripts/fetch-rathole.sh`
 
 ## 本地冒烟（单机全链路，Windows 用 WSL）
 
 ```sh
-# WSL 内
-python3 -m http.server 6768 --bind 127.0.0.1 &            # 假装 Orca
-./tp serve --bind 127.0.0.1 --port 30123 --public-port 17668 --rathole ./rathole &
-TOKEN=$(grep -oE '[A-Z2-7]{52}' /tmp/serve.log | head -1)  # serve 输出里抄
-./tp connect --host 127.0.0.1 --port 30123 --token $TOKEN --rathole ./rathole &
-curl http://127.0.0.1:17668/        # 穿隧道 → 应看到 6768 的响应
-curl http://127.0.0.1:6769/health   # 健康端点 → OK rtt=..ms
-./tp doctor --host 127.0.0.1 --port 30123
+python3 -m http.server 6768 --bind 127.0.0.1 &          # 假装 Orca
+./tp serve --bind 127.0.0.1 --port-base 30100 --entry-host 127.0.0.1 &
+# 输出里有配对链接 tunnelport://REDACTED
+./tp connect '<配对链接>' --host 127.0.0.1
+curl http://127.0.0.1:30101/          # 穿隧道 → 应看到 6768 的响应
+curl http://127.0.0.1:30102/health    # 健康端点 → OK rtt=..ms
+./tp doctor --host 127.0.0.1
 ```
 
-注意：**单机测试必须 `--public-port` 错开本地 6768**（serve 侧公开端口和 connect 侧本地端口在同一台机器上会冲突；真实部署天然分离）。rathole v0.5.0 的配置 schema 与主分支文档不同，配置生成已按 tag 源码对齐（PRD D-1 教训）。
+注：单机测试时 serve 的公开端口要与 connect 的本地端口错开（真实部署在两台机器上天然分离）。
 
 ## 发布
 
-1. `git tag v0.x.0 && git push --tags`
-2. CI 自动构建 5 个平台 → `SHA256SUMS` → 以 draft release 推到公开仓
-3. 前置配置（一次性）：创建对公开仓有 `contents:write` 权限的 PAT，
-   加到本仓 secret `RELEASE_TOKEN`
+打 tag 即发：CI 自动多平台构建（Windows / macOS / Linux × amd64 / arm64）→ 附 `SHA256SUMS` 发布到 Releases。
 
-## 已知问题 / 下一步
+## 文档
 
-- 传输层 tcp+token，TLS（D-8）W1.5
-- doctor C/D 段需要活跃会话数据（W2 从引擎取）
-- 自启 `tp service`（W2）
-- 杀软误报（腾讯管家实测删 rathole）：已做 TP-6001 检测，提白名单流程待办
+| 文档 | 内容 |
+|---|---|
+| [docs/GUIDE.md](docs/GUIDE.md) | 安装 / 使用 / 多设备 / 排障 / rathole 逃生舱 |
+| [docs/AV.md](docs/AV.md) | 杀软误报说明与申诉材料 |
+| [docs/SIGNING.md](docs/SIGNING.md) | 代码签名计划（SignPath） |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | 架构设计决策记录 |
+
+## License
+
+[MIT](LICENSE) · 用爱发电：[请作者喝杯咖啡](https://haochan1996.github.io/tunnelport/)
