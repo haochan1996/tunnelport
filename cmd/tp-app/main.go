@@ -73,7 +73,7 @@ func main() {
 	mygo.App.WhenReady(func() {
 		s.win = mygo.NewWindow(mygo.WindowOptions{
 			Title: "tunnelport — Orca 稳定入口",
-			Width: 520, Height: 560,
+			Width: 520, Height: 700,
 			Content: ui.View(view),
 		})
 		go startEngine(p)
@@ -125,44 +125,100 @@ func refresh() {
 	}
 }
 
-// view 主界面（MyGO 原生 UI）
+// view 主界面 —— Material 3（Flutter 风格）：
+// 顶栏 + 状态胶囊、圆角卡片（16r）、MD 间距（8 网格）、Filled/Outlined 按钮。
 func view(c *ui.Context) {
-	ui.Column(c).Fill().Padding(28).Gap(18).Children(func() {
-		ui.Row(c).Gap(10).Children(func() {
-			ui.Text(c, "tunnelport").FontSize(22).Bold()
-			ui.Text(c, s.status).TextColor(c.Theme().TextMuted)
-		})
-		ui.Divider(c)
+	th := c.Theme()
 
-		ui.Field(c, "入口地址 — 粘贴到 Orca 桌面端「自定义网络地址」", func() {
-			ui.Row(c).Gap(8).Children(func() {
-				ui.Text(c, s.phone).Grow(1)
-				ui.Button(c, "复制").OnClick(func() { copyText(s.phone) })
+	// 顶栏：标题 + 状态胶囊
+	ui.Row(c).Fill().AlignItems(ui.Center).Gap(12).Padding(28, 28, 8).Children(func() {
+		ui.Text(c, "tunnelport").FontSize(21).Bold()
+		ui.Box(c).Radius(999).Padding(8, 14).Background(pillColor(th)).Children(func() {
+			ui.Text(c, s.status).FontSize(12.5).TextColor(pillText(th))
+		})
+	})
+
+	ui.Column(c).Fill().Padding(24, 8, 28).Gap(14).Children(func() {
+		// 卡片 1：入口地址
+		ui.Column(c).Fill().Radius(16).Padding(18).Gap(10).Background(th.Surface).
+			Children(func() {
+				ui.Text(c, "入口地址").FontSize(13).TextColor(th.TextMuted)
+				ui.Text(c, s.phone).FontSize(17).Bold()
+				ui.Text(c, "粘贴到 Orca 桌面端「自定义网络地址」").FontSize(12.5).TextColor(th.TextMuted)
+				ui.Row(c).Gap(8).Children(func() {
+					ui.PrimaryButton(c, "复制地址").OnClick(func() { copyText(s.phone) })
+					ui.Button(c, "验证连接").OnClick(func() { openBrowser(s.health) })
+				})
 			})
-		})
 
-		ui.Field(c, "配对链接 — 换电脑 / 重装时给 tp connect", func() {
-			ui.Row(c).Gap(8).Children(func() {
-				ui.Text(c, clip(s.pairURL, 46)).Grow(1)
-				ui.Button(c, "复制").OnClick(func() { copyText(s.pairURL) })
+		// 卡片 2：配对链接
+		ui.Column(c).Fill().Radius(16).Padding(18).Gap(10).Background(th.Surface).
+			Children(func() {
+				ui.Text(c, "配对链接").FontSize(13).TextColor(th.TextMuted)
+				ui.Text(c, clip(s.pairURL, 44)).FontSize(14)
+				ui.Text(c, "换电脑 / 重装时交给 tp connect").FontSize(12.5).TextColor(th.TextMuted)
+				ui.Row(c).Gap(8).Children(func() {
+					ui.PrimaryButton(c, "复制配对链接").OnClick(func() { copyText(s.pairURL) })
+				})
 			})
-		})
 
-		ui.Checkbox(c, &s.autoOn, "开机自动连接").OnChange(func() {
-			if s.autoOn {
-				autoStartEnable()
-			} else {
-				autoStartDisable()
-			}
-		})
+		// 卡片 3：设置 + 手机配对指引
+		ui.Column(c).Fill().Radius(16).Padding(18).Gap(12).Background(th.Surface).
+			Children(func() {
+				ui.Row(c).Fill().AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "开机自动连接").FontSize(15).Grow(1)
+					ui.Checkbox(c, &s.autoOn, "").OnChange(func() {
+						if s.autoOn {
+							autoStartEnable()
+						} else {
+							autoStartDisable()
+						}
+					})
+				})
+				ui.Box(c).Height(1).Background(th.Border)
+				ui.Text(c, "手机配对").FontSize(13).TextColor(th.TextMuted)
+				ui.Text(c, "Orca 桌面端 Set up Mobile 生成二维码 → 手机 Orca 扫码即连").FontSize(13.5)
+			})
 
-		ui.Divider(c)
-		ui.Text(c, "手机配对：Orca 桌面端 Set up Mobile → 生成二维码 → 手机扫码").TextColor(c.Theme().TextMuted)
-		ui.Text(c, "验证：手机 4G 打开 "+s.health).TextColor(c.Theme().TextMuted)
 		if s.detail != "" {
-			ui.Text(c, s.detail).TextColor(c.Theme().TextMuted)
+			ui.Text(c, s.detail).FontSize(12.5).TextColor(th.TextMuted)
 		}
 	})
+}
+
+// pillColor 状态胶囊底色：已连接=成功色、失败=危险色、其余=描边面。
+func pillColor(th *ui.Theme) ui.Color {
+	switch {
+	case strings.HasPrefix(s.status, "已连接"):
+		return th.Success
+	case s.status == "失败" || strings.Contains(s.status, "失败"):
+		return th.Danger
+	default:
+		return th.Border
+	}
+}
+
+func pillText(th *ui.Theme) ui.Color {
+	switch {
+	case strings.HasPrefix(s.status, "已连接"), s.status == "失败" || strings.Contains(s.status, "失败"):
+		return th.Text
+	default:
+		return th.TextMuted
+	}
+}
+
+// openBrowser 打开健康验证地址。
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }
 
 func clip(s string, n int) string {
