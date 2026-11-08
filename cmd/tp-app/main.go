@@ -39,13 +39,14 @@ var trayPNG []byte
 type appState struct {
 	mu sync.Mutex
 
-	pairURL  string
-	phone    string
-	health   string
-	fp       string
-	localMap string
-	diagHost string
-	diagCtrl int
+	pairURL   string
+	phone     string
+	health    string
+	fp        string
+	localMap  string
+	entryHost string
+	diagHost  string
+	diagCtrl  int
 
 	minToTray bool
 
@@ -287,6 +288,51 @@ func (App) Copy(text string) error {
 // Autostart 返回开机自启状态。
 func (App) Autostart() (bool, error) { return autoStartEnabled(), nil }
 
+// SetLocalMap 设置本地映射（重连后生效）。
+func (App) SetLocalMap(addr string) error {
+	st.mu.Lock()
+	st.localMap = strings.TrimSpace(addr)
+	st.mu.Unlock()
+	return nil
+}
+
+// LocalMap 当前本地映射。
+func (App) LocalMap() (string, error) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.localMap, nil
+}
+
+// SetEntryHost 设置入口主机覆盖（代理/软路由/DDNS；重连后生效）。
+func (App) SetEntryHost(host string) error {
+	st.mu.Lock()
+	st.entryHost = strings.TrimSpace(host)
+	st.mu.Unlock()
+	return nil
+}
+
+// EntryHost 当前入口覆盖（空=自动检测）。
+func (App) EntryHost() (string, error) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.entryHost, nil
+}
+
+// ResetPairing 重置配对：断开隧道并清除留存配对码。
+func (App) ResetPairing() error {
+	st.mu.Lock()
+	eng := st.eng
+	st.eng = nil
+	st.pairURL = ""
+	st.state, st.detail = "未连接", ""
+	st.mu.Unlock()
+	if eng != nil {
+		_ = eng.Stop()
+	}
+	_ = os.Remove(lastURLPath())
+	return nil
+}
+
 // Pause 暂停隧道（断开连接，保留配对码与界面状态）。
 func (App) Pause() error {
 	st.mu.Lock()
@@ -450,7 +496,11 @@ func begin(url string) error {
 	st.mu.Lock()
 	st.pairURL = url
 	saveLastURL(url)
-	st.phone = fmt.Sprintf("%s:%d", p.Host, p.Public)
+	dispHost := p.Host
+	if st.entryHost != "" {
+		dispHost = st.entryHost
+	}
+	st.phone = fmt.Sprintf("%s:%d", dispHost, p.Public)
 	st.health = fmt.Sprintf("http://%s:%d/health", p.Host, p.Public+1)
 	st.fp = p.FP
 	st.diagHost, st.diagCtrl = p.Host, p.Control

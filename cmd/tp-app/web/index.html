@@ -287,14 +287,14 @@
           <div class="srow">
             <span class="srow__key">端到端加密</span>
             <span class="srow__desc">本地终止 TLS（<code>--tls-terminate</code>），中继只见密文；需手机端接受 <code>https://</code></span>
-            <span class="srow__ctl"><button class="switch" role="switch" aria-checked="false" aria-label="端到端加密"></button></span>
+            <span class="srow__ctl"><button class="switch" role="switch" aria-checked="false" aria-label="端到端加密" disabled title="GUI 暂未开放；命令行用 --tls-terminate"></button></span>
           </div>
           <div class="srow">
             <span class="srow__key">隧道引擎</span>
             <span class="srow__desc">连接中不可更改；rathole 为逃生舱，断开后可切换</span>
             <span class="srow__ctl">
               <span class="seg" role="group" aria-label="隧道引擎">
-                <button aria-pressed="true">自研</button>
+                <button aria-pressed="true" disabled>自研</button>
                 <button aria-pressed="false" disabled>rathole</button>
               </span>
             </span>

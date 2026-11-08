@@ -32,10 +32,11 @@
     var params = q('section[aria-label="接入参数"]');
     if (params && st.params) {
       var rows = qa(".lrow", params);
+      if (!rows.length) rows = qa(".kv", params); // v0.1.3：HTML 是 .kv 结构
       st.params.forEach(function (kv, i) {
         if (!rows[i]) return;
-        var k = q(".lrow__key", rows[i]); if (k) k.textContent = kv[0];
-        var v = q(".lrow__val", rows[i]); if (v) v.textContent = kv[1];
+        var k = q(".lrow__key", rows[i]) || q(".kv__k", rows[i]); if (k) k.textContent = kv[0];
+        var v = q(".lrow__val", rows[i]) || q(".kv__v", rows[i]); if (v) v.textContent = kv[1];
       });
     }
 
@@ -273,6 +274,56 @@
       followSw.addEventListener("click", function () {
         logFollow = followSw.getAttribute("aria-checked") !== "true";
         followSw.setAttribute("aria-checked", String(logFollow));
+      });
+    }
+
+    // 复制结果（诊断屏，v0.1.3 修死按钮）
+    qa("#view-doctor .btn").forEach(function (b) {
+      if (b.textContent.indexOf("复制结果") >= 0) {
+        b.addEventListener("click", function () {
+          var txt = qa("#view-doctor .readout__row").map(function (r) {
+            return r.textContent.replace(/\s+/g, " ").trim();
+          }).join("\n");
+          call("Copy", txt).then(function () {
+            b.textContent = "已复制";
+            setTimeout(function () { b.textContent = "复制结果"; }, 1500);
+          }).catch(function () {});
+        });
+      }
+    });
+
+    // 重置配对（危险区，v0.1.3 修死按钮）：清除留存配对码并回配对页
+    var resetBtn = q(".btn--danger");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", function () {
+        call("ResetPairing").then(function () { location.href = "/pairing.html"; }).catch(function () {});
+      });
+    }
+
+    // 设置输入框：本地映射 / 入口覆盖（v0.1.3 接线，重连后生效）
+    var localInput = q('input[aria-label="本地映射地址"]');
+    if (localInput) {
+      call("LocalMap").then(function (v) { if (v) localInput.value = v; }).catch(function () {});
+      localInput.addEventListener("change", function () {
+        call("SetLocalMap", localInput.value.trim()).catch(function () {});
+      });
+    }
+    var entryInput = q('input[aria-label="入口覆盖"]');
+    if (entryInput) {
+      call("EntryHost").then(function (v) { if (v) entryInput.value = v; }).catch(function () {});
+      entryInput.addEventListener("change", function () {
+        call("SetEntryHost", entryInput.value.trim()).catch(function () {});
+      });
+    }
+
+    // 配对页「配对码丢了？」：复制找回命令（v0.1.3 修死按钮）
+    var lostBtn = q(".linkish");
+    if (lostBtn && lostBtn.textContent.indexOf("show-pairing") >= 0) {
+      lostBtn.addEventListener("click", function () {
+        call("Copy", "tp status --show-pairing").then(function () {
+          lostBtn.textContent = "找回命令已复制 ✓";
+          setTimeout(function () { lostBtn.textContent = "配对码丢了？tp status --show-pairing"; }, 2000);
+        }).catch(function () {});
       });
     }
 

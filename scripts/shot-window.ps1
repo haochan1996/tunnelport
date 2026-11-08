@@ -11,7 +11,7 @@ public class W {
   public struct R { public int L, T, Rt, B; }
 }
 '@
-$env:TP_TAB = '1'
+$env:TP_TAB = '0'
 Start-Process -FilePath 'D:\ai\orca\workspace\tp-server\bin\tunnelport.exe'
 Start-Sleep -Seconds 9
 $p = Get-Process tunnelport -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
@@ -28,6 +28,6 @@ $g = [System.Drawing.Graphics]::FromImage($bmp)
 $hdc = $g.GetHdc()
 [W]::PrintWindow($p.MainWindowHandle, $hdc, 2) | Out-Null   # PW_RENDERFULLCONTENT
 $g.ReleaseHdc($hdc)
-$bmp.Save('D:\ai\orca\workspace\tp-server\bin\relink7.png')
+$bmp.Save('D:\ai\orca\workspace\tp-server\bin\relink8.png')
 Get-Process tunnelport -ErrorAction SilentlyContinue | Stop-Process -Force
 Write-Host ok
