@@ -8,7 +8,7 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
-$version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v0.1.0" }
+$version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v0.1.1" }
 $role = if ($env:TP_ROLE) { $env:TP_ROLE } else { "serve" }
 $url = $env:TP_URL
 if ($role -eq "connect" -and -not $url) {

@@ -45,7 +45,7 @@
           <div class="page-actions">
             <button class="btn btn--ghost" data-act="relink">更换配对码</button>
             <button class="btn btn--ghost" data-goto="doctor">重新诊断</button>
-            <button class="btn btn--primary">暂停隧道</button>
+            <button class="btn btn--primary" id="btn-pause">暂停隧道</button>
           </div>
         </header>
 
@@ -54,7 +54,6 @@
           <span class="entry__v">47.98.203.17:30123</span>
           <span class="entry__actions">
             <button class="btn btn--ghost" data-copy="47.98.203.17:30123">复制</button>
-            <button class="btn btn--ghost" id="open-qr">二维码</button>
           </span>
         </div>
 
@@ -88,91 +87,6 @@
               <span class="lrow__state lrow__state--ok">✔ 通过</span>
               <span class="lrow__meta">6 h</span>
             </div>
-            <div class="lrow">
-              <span class="lrow__key">外部可达</span>
-              <span class="lrow__val">待手机 4G 打开 30124/health 验证</span>
-              <span class="lrow__state lrow__state--wait">– 待验</span>
-              <span class="lrow__meta">6769</span>
-            </div>
-          </div>
-        </section>
-
-        <div class="grid-2">
-          <section aria-label="接入参数">
-            <div class="label label--tight">接入参数</div>
-            <div class="kv"><span class="kv__k">本地映射</span><span class="kv__v">127.0.0.1:6768 → Orca</span></div>
-            <div class="kv"><span class="kv__k">隧道引擎</span><span class="kv__v">自研 · rathole 逃生舱</span></div>
-            <div class="kv"><span class="kv__k">开机自启</span><span class="kv__v">计划任务 · 已启用</span></div>
-            <div class="kv"><span class="kv__k">健康自检</span><span class="kv__v">47.98.203.17:30124/health</span></div>
-          </section>
-
-          <section aria-label="最近事件">
-            <div class="label-row">
-              <div class="label">最近事件</div>
-              <button class="btn btn--quiet" data-goto="logs" style="font-size: 0.8125rem; padding: var(--s1) var(--s2)">查看全部</button>
-            </div>
-            <div class="term" style="max-height: 148px" role="log">
-              <span class="term__line"><span class="term__dim">12:14:31</span> <span class="term__hint">WARN </span> tunnel  keepalive missed 1 · reconnecting</span>
-              <span class="term__line"><span class="term__dim">12:14:31</span> <span class="term__ok">INFO </span> tunnel  reconnected in 380 ms</span>
-              <span class="term__line"><span class="term__dim">12:09:03</span> <span class="term__ok">INFO </span> health  external check OK (200, 63 ms)</span>
-              <span class="term__line"><span class="term__dim">12:04:32</span> <span class="term__ok">INFO </span> service orca 6768 → entry:6768 forwarded</span>
-              <span class="term__line"><span class="term__dim">12:04:31</span> <span class="term__ok">INFO </span> auth    token accepted · fp SHA256:9f3c…b12</span>
-            </div>
-          </section>
-        </div>
-      </div>
-    </section>
-
-    <!-- ------------------------------------------------------ 诊断 -->
-    <section class="view" id="view-doctor" aria-label="诊断">
-      <div class="view__in">
-        <header class="page-head">
-          <div>
-            <h1 class="page-title">五段诊断</h1>
-            <p class="page-meta">上次诊断 12:14 · 耗时 1.8 s · 每段独立判定</p>
-          </div>
-          <div class="page-actions">
-            <button class="btn btn--ghost">复制结果</button>
-            <button class="btn btn--primary">重新诊断</button>
-          </div>
-        </header>
-
-        <div class="band on-dark">
-          <div class="doctor-verdict-top">
-            <span>tp doctor</span>
-            <span>本地 → 中继 → 鉴权 → 隧道 → 外部</span>
-          </div>
-          <div class="readout" style="margin-top: var(--s3)">
-            <div class="readout__row readout__row--ok">
-              <span class="readout__mark">✔</span><span class="readout__seg">本地</span>
-              <span></span><span class="readout__val">127.0.0.1:6768 已监听 · Orca 在线</span><span class="readout__meta">3 ms</span>
-            </div>
-            <div class="readout__row readout__row--ok">
-              <span class="readout__mark">✔</span><span class="readout__seg">中继</span>
-              <span></span><span class="readout__val">47.98.203.17:30123 可达 · 三次握手正常</span><span class="readout__meta">41 ms</span>
-            </div>
-            <div class="readout__row readout__row--ok">
-              <span class="readout__mark">✔</span><span class="readout__seg">鉴权</span>
-              <span></span><span class="readout__val">token 接受 · 证书指纹与配对码一致</span><span class="readout__meta">TOFU</span>
-            </div>
-            <div class="readout__row readout__row--ok">
-              <span class="readout__mark">✔</span><span class="readout__seg">隧道</span>
-              <span></span><span class="readout__val">TLS 已建立 · 上下行转发中 · 无丢包</span><span class="readout__meta">6 h</span>
-            </div>
-            <div class="readout__row readout__row--wait">
-              <span class="readout__mark">–</span><span class="readout__seg">外部</span>
-              <span></span><span class="readout__val">中继健康端点 OK · 待手机端外部验证</span><span class="readout__meta">6769</span>
-            </div>
-          </div>
-          <div class="band__verdict">
-            <strong>四段通过，链路可用</strong>
-            <span class="band__hint">外部段需手机 4G 打开 <code>47.98.203.17:30124/health</code>，显示 OK 即全链路通畅。</span>
-          </div>
-        </div>
-
-        <section class="troubles" aria-label="常见处理">
-          <div class="label">连不上时的常见处理</div>
-          <div class="ledger">
             <div class="lrow">
               <span class="lrow__key">杀软拦截</span>
               <span class="lrow__val">自研引擎无杀软特征；仅 --engine rathole 逃生舱会遇到</span>
@@ -363,20 +277,6 @@
     </span>
   </div>
 
-  <!-- ===================================================== QR modal -->
-  <div class="overlay" id="qr-overlay" role="dialog" aria-modal="true" aria-label="入口地址二维码">
-    <div class="modal">
-      <h3>手机扫码填入地址</h3>
-      <svg class="modal__qr" id="qr-svg" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="入口地址二维码"></svg>
-      <div class="modal__addr">47.98.203.17:30123</div>
-      <p class="modal__note">手机 Orca 粘贴此地址即可接入；也可在 Set up Mobile 中扫码配对。不要填 <code>wss://</code> 开头的地址。</p>
-      <div class="modal__actions">
-        <button class="btn btn--ghost" id="close-qr">关闭</button>
-        <button class="btn btn--primary" data-copy="47.98.203.17:30123">复制地址</button>
-      </div>
-    </div>
-  </div>
-
 </div>
 
 <script>
@@ -404,7 +304,6 @@
   const _qp = new URLSearchParams(location.search);
   const initial = location.hash.replace("#", "") || _qp.get("tab") || "";
   if (initial && document.getElementById("view-" + initial)) show(initial);
-  if (initial === "qr") document.getElementById("qr-overlay").classList.add("is-open");
 
   /* switches ------------------------------------------------------------ */
   document.querySelectorAll(".switch").forEach(s =>
@@ -432,46 +331,6 @@
     });
   });
 
-  /* QR modal ------------------------------------------------------------- */
-  const overlay = document.getElementById("qr-overlay");
-  document.getElementById("open-qr").addEventListener("click", () => {
-    overlay.classList.add("is-open");
-    document.getElementById("close-qr").focus();
-  });
-  document.getElementById("close-qr").addEventListener("click", () => overlay.classList.remove("is-open"));
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("is-open"); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape") overlay.classList.remove("is-open"); });
-
-  /* deterministic QR-like matrix (visual placeholder, not a real QR) ----- */
-  (function drawQR() {
-    const svg = document.getElementById("qr-svg");
-    const N = 25, NS = "http://www.w3.org/2000/svg";
-    let seed = 4798203;
-    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-    const mk = (x, y, w, h, fill) => {
-      const r = document.createElementNS(NS, "rect");
-      r.setAttribute("x", x); r.setAttribute("y", y);
-      r.setAttribute("width", w); r.setAttribute("height", h);
-      r.setAttribute("fill", fill);
-      svg.appendChild(r);
-    };
-    mk(0, 0, N, N, "#f5f6f4");
-    const finder = (ox, oy) => {
-      mk(ox, oy, 7, 7, "#141a17");
-      mk(ox + 1, oy + 1, 5, 5, "#f5f6f4");
-      mk(ox + 2, oy + 2, 3, 3, "#141a17");
-    };
-    const inFinder = (x, y) =>
-      (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
-    for (let y = 0; y < N; y++)
-      for (let x = 0; x < N; x++)
-        if (!inFinder(x, y) && rnd() > 0.52) mk(x, y, 1, 1, "#141a17");
-    finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
-    /* alignment pattern */
-    mk(N - 9, N - 9, 5, 5, "#141a17");
-    mk(N - 8, N - 8, 3, 3, "#f5f6f4");
-    mk(N - 7, N - 7, 1, 1, "#141a17");
-  })();
 </script>
   <script src="app.js"></script>
 </body>

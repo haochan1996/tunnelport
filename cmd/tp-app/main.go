@@ -7,11 +7,7 @@ package main
 import (
 	"context"
 	"embed"
-	"encoding/base64"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"io/fs"
 	"net"
 	"os"
@@ -24,7 +20,6 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
-	"rsc.io/qr"
 
 	"github.com/haochan1996/tunnelport/internal/certs"
 	"github.com/haochan1996/tunnelport/internal/detect"
@@ -232,23 +227,25 @@ func (App) Doctor() (DoctorDTO, error) {
 }
 
 // Logs 返回引擎日志（过滤后）。
+// logLevelOf 引擎日志分级：1=INFO 2=WARN 3=ERROR（兼容中文语义）。
+func logLevelOf(l string) int {
+	u := strings.ToUpper(l)
+	switch {
+	case strings.Contains(u, "ERROR") || strings.Contains(l, "失败") || strings.Contains(l, "错误") || strings.Contains(l, "拒绝"):
+		return 3
+	case strings.Contains(u, "WARN") || strings.Contains(l, "重连") || strings.Contains(l, "占用") || strings.Contains(l, "顺延") || strings.Contains(l, "重试"):
+		return 2
+	default:
+		return 1
+	}
+}
+
 func (App) Logs(level int, search string) ([]string, error) {
 	lines := tailLogs(300)
 	var out []string
 	for _, l := range lines {
-		switch level {
-		case 1:
-			if !strings.Contains(l, "INFO") {
-				continue
-			}
-		case 2:
-			if !strings.Contains(l, "WARN") {
-				continue
-			}
-		case 3:
-			if !strings.Contains(l, "ERROR") {
-				continue
-			}
+		if level > 0 && logLevelOf(l) != level {
+			continue
 		}
 		if search != "" && !strings.Contains(l, search) {
 			continue
@@ -266,14 +263,14 @@ func (App) Copy(text string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("clip.exe")
+		cmd = hiddenCmd("clip.exe")
 	case "darwin":
-		cmd = exec.Command("pbpaste")
+		cmd = hiddenCmd("pbpaste")
 	default:
-		cmd = exec.Command("sh", "-c", "xclip -selection clipboard 2>/dev/null || wl-copy")
+		cmd = hiddenCmd("sh", "-c", "xclip -selection clipboard 2>/dev/null || wl-copy")
 	}
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("clip.exe")
+		cmd = hiddenCmd("clip.exe")
 	}
 	in, err := cmd.StdinPipe()
 	if err != nil {
@@ -290,6 +287,71 @@ func (App) Copy(text string) error {
 // Autostart 返回开机自启状态。
 func (App) Autostart() (bool, error) { return autoStartEnabled(), nil }
 
+// Pause 暂停隧道（断开连接，保留配对码与界面状态）。
+func (App) Pause() error {
+	st.mu.Lock()
+	eng := st.eng
+	st.mu.Unlock()
+	if eng == nil {
+		return fmt.Errorf("隧道未在运行")
+	}
+	_ = eng.Stop()
+	st.mu.Lock()
+	st.state, st.detail = "已暂停", "已断开 · 点「继续隧道」恢复"
+	st.mu.Unlock()
+	return nil
+}
+
+// Resume 继续隧道。
+func (App) Resume() error {
+	st.mu.Lock()
+	u := st.pairURL
+	st.mu.Unlock()
+	if u == "" {
+		u = readLastURL()
+	}
+	if u == "" {
+		return fmt.Errorf("没有配对码，请先配对")
+	}
+	return begin(u)
+}
+
+// ClearLogs 清空引擎日志（仅本机文件）。
+func (App) ClearLogs() error {
+	home, _ := os.UserHomeDir()
+	return os.WriteFile(filepath.Join(home, ".tunnelport", "engine.log"), nil, 0o600)
+}
+
+// lastURLPath 上次成功配对的链接（重启免重配 / 重配页回填，v1.5）。
+func lastURLPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".tunnelport", "lasturl")
+}
+
+func saveLastURL(u string) {
+	_ = os.MkdirAll(filepath.Dir(lastURLPath()), 0o755)
+	_ = os.WriteFile(lastURLPath(), []byte(u), 0o600)
+}
+
+func readLastURL() string {
+	b, err := os.ReadFile(lastURLPath())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// LastURL 配对页回填上次成功配对的链接，避免「找不到配对码」。
+func (App) LastURL() (string, error) {
+	st.mu.Lock()
+	u := st.pairURL
+	st.mu.Unlock()
+	if u == "" {
+		u = readLastURL()
+	}
+	return u, nil
+}
+
 // SetAutostart 开关开机自启。
 func (App) SetAutostart(on bool) error {
 	if on {
@@ -298,39 +360,6 @@ func (App) SetAutostart(on bool) error {
 		autoStartDisable()
 	}
 	return nil
-}
-
-// QR 返回入口地址二维码（PNG base64 data URI）。
-func (App) QR() (string, error) {
-	st.mu.Lock()
-	phone := st.phone
-	st.mu.Unlock()
-	if phone == "" {
-		return "", fmt.Errorf("尚未连接")
-	}
-	code, err := qr.Encode(phone, qr.M)
-	if err != nil {
-		return "", err
-	}
-	bmp, size, stride := code.Bitmap, code.Size, code.Stride
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	white, black := color.RGBA{255, 255, 255, 255}, color.RGBA{20, 26, 23, 255}
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
-			c := white
-			if bmp[y*stride+x/8]&(1<<uint(7-x%8)) != 0 {
-				c = black
-			}
-			img.Set(x, y, c)
-		}
-	}
-	var buf strings.Builder
-	enc := base64.NewEncoder(base64.StdEncoding, &buf)
-	if err := png.Encode(enc, img); err != nil {
-		return "", err
-	}
-	_ = enc.Close()
-	return "data:image/png;base64," + buf.String(), nil
 }
 
 // MinimizeToTray 关闭行为：true=关窗最小化到托盘（隧道继续运行），false=直接退出。
@@ -358,11 +387,11 @@ func (App) ClipboardText() (string, error) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw")
+		cmd = hiddenCmd("powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw")
 	case "darwin":
-		cmd = exec.Command("pbpaste")
+		cmd = hiddenCmd("pbpaste")
 	default:
-		cmd = exec.Command("sh", "-c", "xclip -selection clipboard -o 2>/dev/null || wl-paste 2>/dev/null")
+		cmd = hiddenCmd("sh", "-c", "xclip -selection clipboard -o 2>/dev/null || wl-paste 2>/dev/null")
 	}
 	out, err := cmd.Output()
 	if err != nil {
@@ -392,7 +421,7 @@ $lnk.IconLocation = '` + q + `,0'
 $lnk.Save()
 Write-Output "$desktop\tunnelport.lnk"
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps).CombinedOutput()
+	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", ps).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("创建失败: %s", strings.TrimSpace(string(out)))
 	}
@@ -420,6 +449,7 @@ func begin(url string) error {
 	}
 	st.mu.Lock()
 	st.pairURL = url
+	saveLastURL(url)
 	st.phone = fmt.Sprintf("%s:%d", p.Host, p.Public)
 	st.health = fmt.Sprintf("http://%s:%d/health", p.Host, p.Public+1)
 	st.fp = p.FP
@@ -500,6 +530,18 @@ func boolWord(b bool) string {
 // ---------- 入口 ----------
 
 func main() {
+	// 默认开机自启：首次运行自动注册；用户在设置里关过（decided 标记）则不再自动开
+	if home, err := os.UserHomeDir(); err == nil {
+		marker := filepath.Join(home, ".tunnelport", "autostart.decided")
+		if _, err := os.Stat(marker); err != nil {
+			_ = os.MkdirAll(filepath.Dir(marker), 0o755)
+			if !autoStartEnabled() {
+				autoStartEnable()
+			}
+			_ = os.WriteFile(marker, []byte("1"), 0o644)
+		}
+	}
+
 	args := os.Args[1:]
 	hasURL := false
 	if len(args) > 0 && strings.HasPrefix(args[0], tokenx.Scheme+"://") {
@@ -520,7 +562,15 @@ func main() {
 			}
 		}
 	} else {
-		st.state = "未连接"
+		// 重启免重配：自动读取上次成功配对的链接（v1.5）
+		if u := readLastURL(); u != "" {
+			if err := begin(u); err == nil {
+				hasURL = true
+			}
+		}
+		if !hasURL {
+			st.state = "未连接"
+		}
 	}
 
 	sub, _ := fs.Sub(web, "web")
@@ -559,7 +609,7 @@ func main() {
 		menu := &mygo.Menu{}
 		menu.Append(
 			&mygo.MenuItem{ID: "show", Label: "打开主程序", Click: func(*mygo.MenuItem, *mygo.Window) { win.Show() }},
-			&mygo.MenuItem{ID: "quit", Label: "退出", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
+			&mygo.MenuItem{ID: "quit", Label: "退出", Click: func(*mygo.MenuItem, *mygo.Window) { quitting = true; mygo.App.Quit() }},
 		)
 		if tray, err := mygo.NewTray(mygo.TrayOptions{
 			ID: "tunnelport", Icon: trayPNG,
@@ -628,7 +678,16 @@ func autoStartEnable() {
 	st.mu.Unlock()
 	switch runtime.GOOS {
 	case "windows":
-		_ = os.WriteFile(startupFile(), []byte(fmt.Sprintf("@echo off\r\nstart \"\" \"%s\" \"%s\"\r\n", exe, url)), 0o755)
+		// .lnk 快捷方式：登录启动完全静默（.bat 会闪 cmd 黑窗，v1.5）
+		q := strings.ReplaceAll(exe, "'", "''")
+		uq := strings.ReplaceAll(url, "'", "''")
+		ps := "$ws = New-Object -ComObject WScript.Shell" + "\r\n" +
+			"$lnk = $ws.CreateShortcut('" + strings.ReplaceAll(startupFile(), "'", "''") + "')" + "\r\n" +
+			"$lnk.TargetPath = '" + q + "'" + "\r\n" +
+			"$lnk.Arguments = '" + uq + "'" + "\r\n" +
+			"$lnk.Save()"
+		_ = hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", ps).Run()
+		_ = os.Remove(strings.TrimSuffix(startupFile(), ".lnk") + ".bat") // 清理旧版痕迹
 	case "darwin":
 		plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -638,12 +697,12 @@ func autoStartEnable() {
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
 </dict></plist>`, exe, url)
 		_ = os.WriteFile(plistPath(), []byte(plist), 0o644)
-		_ = exec.Command("launchctl", "load", plistPath()).Run()
+		_ = hiddenCmd("launchctl", "load", plistPath()).Run()
 	default:
 		unit := fmt.Sprintf("[Unit]\nDescription=tunnelport\n[Service]\nExecStart=%s %s\nRestart=always\n[Install]\nWantedBy=default.target\n", exe, url)
 		_ = os.WriteFile(systemdUnitPath(), []byte(unit), 0o644)
-		_ = exec.Command("systemctl", "--user", "daemon-reload").Run()
-		_ = exec.Command("systemctl", "--user", "enable", "--now", "tunnelport").Run()
+		_ = hiddenCmd("systemctl", "--user", "daemon-reload").Run()
+		_ = hiddenCmd("systemctl", "--user", "enable", "--now", "tunnelport").Run()
 	}
 }
 
@@ -651,18 +710,19 @@ func autoStartDisable() {
 	switch runtime.GOOS {
 	case "windows":
 		_ = os.Remove(startupFile())
+		_ = os.Remove(strings.TrimSuffix(startupFile(), ".lnk") + ".bat")
 	case "darwin":
-		_ = exec.Command("launchctl", "unload", plistPath()).Run()
+		_ = hiddenCmd("launchctl", "unload", plistPath()).Run()
 		_ = os.Remove(plistPath())
 	default:
-		_ = exec.Command("systemctl", "--user", "disable", "--now", "tunnelport").Run()
+		_ = hiddenCmd("systemctl", "--user", "disable", "--now", "tunnelport").Run()
 		_ = os.Remove(systemdUnitPath())
 	}
 }
 
 func startupFile() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "tunnelport.bat")
+	return filepath.Join(home, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "tunnelport.lnk")
 }
 
 func plistPath() string {

@@ -104,6 +104,7 @@
   }
 
   // ---------- 日志屏 ----------
+  var logLv = 0, logKw = "", logFollow = true;
   function paintLogs(lines) {
     var v = q("#view-logs");
     if (!v) return;
@@ -112,10 +113,15 @@
     host.innerHTML = "";
     (lines || []).slice(-60).forEach(function (l) {
       var d = document.createElement("div");
-      d.className = "term__line" + (l.indexOf("ERROR") >= 0 ? " term__hint" : l.indexOf("WARN") >= 0 ? "" : " term__dim");
+      var up = l.toUpperCase();
+      var cls = " term__dim";
+      if (up.indexOf("ERROR") >= 0 || l.indexOf("失败") >= 0 || l.indexOf("错误") >= 0 || l.indexOf("拒绝") >= 0) cls = " term__hint";
+      else if (up.indexOf("WARN") >= 0 || l.indexOf("重连") >= 0) cls = "";
+      d.className = "term__line" + cls;
       d.textContent = l;
       host.appendChild(d);
     });
+    if (logFollow) host.scrollTop = host.scrollHeight;
   }
 
   // ---------- 交互 ----------
@@ -157,21 +163,6 @@
       });
     }, true);
 
-    // 二维码弹窗：拉真实 QR
-    document.addEventListener("click", function (e) {
-      if (e.target.closest("#open-qr")) {
-        call("QR").then(function (uri) {
-          var box = q("#qr-svg");
-          if (!box) return;
-          var img = document.createElement("img");
-          img.src = uri;
-          img.alt = "入口地址二维码";
-          img.style.cssText = "width:220px;height:220px;image-rendering:pixelated;background:#fff;padding:8px;border-radius:8px";
-          box.replaceWith(img);
-        }).catch(function () {});
-      }
-    });
-
     // 重新诊断（data-goto=doctor 或 诊断屏按钮）
     document.addEventListener("click", function (e) {
       if (e.target.closest("[data-goto=doctor]") || (e.target.closest(".btn--primary") && q("#view-doctor.is-active, #view-doctor.active"))) {
@@ -204,7 +195,85 @@
           var on = input.type === "checkbox" || input.type === "radio" ? input.checked : input.getAttribute("aria-checked") !== "true";
           call(pair[1], on).catch(function () {});
         });
+        // button[role=switch] 不触发 change，必须接 click（v1.5 修死开关）
+        if (input.tagName === "BUTTON") {
+          input.addEventListener("click", function () {
+            var on = input.getAttribute("aria-checked") !== "true";
+            input.setAttribute("aria-checked", String(on));
+            call(pair[1], on).catch(function () {});
+          });
+        }
       });
+    }
+
+    // 暂停 / 继续隧道（v1.5 修死按钮）
+    function syncPause(d) {
+      var pb = q("#btn-pause");
+      if (!pb || !d) return;
+      var paused = d.state === "已暂停";
+      pb.setAttribute("data-paused", paused ? "1" : "0");
+      pb.textContent = paused ? "继续隧道" : "暂停隧道";
+    }
+    var pauseBtn = q("#btn-pause");
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", function () {
+        var paused = pauseBtn.getAttribute("data-paused") === "1";
+        call(paused ? "Resume" : "Pause").then(function () {
+          pauseBtn.setAttribute("data-paused", paused ? "0" : "1");
+          pauseBtn.textContent = paused ? "暂停隧道" : "继续隧道";
+        }).catch(function (e) {
+          pauseBtn.textContent = String((e && e.message) || e);
+          setTimeout(function () { pauseBtn.textContent = "暂停隧道"; }, 2000);
+        });
+      });
+    }
+
+    // 日志屏：级别筛选 / 搜索 / 清空 / 复制（v1.5 修死控件）
+    function refreshLogs() {
+      call("Logs", logLv, logKw).then(paintLogs).catch(function () {});
+    }
+    var LV = { "全部": 0, "INFO": 1, "WARN": 2, "ERROR": 3 };
+    var segBtns = qa(".logbar .seg button");
+    segBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        segBtns.forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        logLv = LV[b.textContent.trim()] || 0;
+        refreshLogs();
+      });
+    });
+    var logSearch = q(".logbar input[type=search]");
+    if (logSearch) {
+      var t0 = null;
+      logSearch.addEventListener("input", function () {
+        if (t0) clearTimeout(t0);
+        t0 = setTimeout(function () { logKw = logSearch.value.trim(); refreshLogs(); }, 300);
+      });
+    }
+    qa("#view-logs .page-actions .btn").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (b.textContent.indexOf("清空") >= 0) {
+          call("ClearLogs").then(refreshLogs).catch(function () {});
+        } else if (b.textContent.indexOf("复制") >= 0) {
+          var txt = qa("#view-logs .term__line").map(function (el) { return el.textContent; }).join("\n");
+          call("Copy", txt).then(function () {
+            b.textContent = "已复制";
+            setTimeout(function () { b.textContent = "复制"; }, 1500);
+          }).catch(function () {});
+        }
+      });
+    });
+    var followSw = q(".logbar .follow .switch");
+    if (followSw) {
+      followSw.addEventListener("click", function () {
+        logFollow = followSw.getAttribute("aria-checked") !== "true";
+        followSw.setAttribute("aria-checked", String(logFollow));
+      });
+    }
+
+    // 配对页返回主界面（v1.5：已连接时不再困在配对页）
+    var backBtn = q("#back-home");
+    if (backBtn) {
+      backBtn.addEventListener("click", function () { location.href = "/"; });
     }
 
     // 更换配对码：回配对页重新粘贴链接（v1.3 恢复路径）
@@ -277,6 +346,14 @@
       call("Logs", level, "").then(paintLogs).catch(function () {});
     }, 4000);
 
+    // 配对页回填上次成功配对的链接（v1.5：重新配对不再「找不到配对码」）
+    var pairField = q(".pair .field");
+    if (pairField && !pairField.value) {
+      call("LastURL").then(function (u) {
+        if (u) pairField.value = u;
+      }).catch(function () {});
+    }
+
     // 配对页：从剪贴板读取（免手粘，杜绝截断丢 #token）
     var pasteBtn = q("#paste-clip");
     if (pasteBtn) {
@@ -333,12 +410,12 @@
   var tickN = 0;
   function tick() {
     tickN++;
-    call("Status").then(paintStatus).catch(function () {});
+    call("Status").then(function (d) { paintStatus(d); syncPause(d); }).catch(function () {});
     // 五段数据：状态屏台账 + 诊断屏同源（每 3 轮 = 9s 刷一次，探测不至过频）
     if (tickN % 3 === 1 || location.hash.indexOf("doctor") >= 0) {
       call("Doctor").then(function (d) { paintLedger(d.rows); paintDoctor(d); }).catch(function () {});
     }
-    if (location.hash.indexOf("logs") >= 0) call("Logs", 0, "").then(paintLogs).catch(function () {});
+    if (location.hash.indexOf("logs") >= 0) call("Logs", logLv, logKw).then(paintLogs).catch(function () {});
   }
 
   document.addEventListener("DOMContentLoaded", function () {

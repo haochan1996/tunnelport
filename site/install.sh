@@ -9,7 +9,7 @@
 # 环境变量：TP_VERSION（默认 v0.1.0）、TP_DOWNLOAD_URL（自定义下载源）、TP_PORT_BASE
 set -eu
 
-VERSION="${TP_VERSION:-v0.1.0}"
+VERSION="${TP_VERSION:-v0.1.1}"
 BASE_URL="https://github.com/haochan1996/tunnelport/releases/download/${VERSION}"
 
 ROLE="serve"
@@ -93,6 +93,7 @@ elif command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   $SUDO chmod 755 /etc/tunnelport
   DEV_ARGS=""
   [ -n "${TP_DEVICES:-}" ] && DEV_ARGS=" --devices ${TP_DEVICES}"
+  [ -n "${TP_PORT_BASE:-}" ] && DEV_ARGS="${DEV_ARGS} --port-base ${TP_PORT_BASE}"
   cat > /tmp/tunnelport.service.$$ <<UNIT
 [Unit]
 Description=tunnelport — Orca 稳定入口

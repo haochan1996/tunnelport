@@ -13,7 +13,7 @@ import (
 )
 
 func statusCmd() *cobra.Command {
-	var flagShow bool
+	var flagShow, flagQR bool
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "查看当前状态",
@@ -26,12 +26,12 @@ func statusCmd() *cobra.Command {
 				fmt.Println("还没有运行过。先在 VPS 上执行 tp serve。")
 				return nil
 			}
-			fmt.Printf("角色:      %s\n", s.Role)
-			fmt.Printf("\n入口地址（复制后粘贴到 Orca 桌面端「自定义网络地址」）:\n   %s\n", s.Entry)
-			fmt.Printf("控制通道:  %s\n", s.Control)
-			fmt.Printf("token 指纹: %s\n", s.TokenFP)
-			fmt.Printf("版本:      %s\n", s.Version)
-			fmt.Printf("更新时间:  %s\n", s.UpdatedAt)
+			fmt.Printf("tunnelport · %s · %s\n", s.Role, s.Version)
+			fmt.Println("────────────────────────────────────────")
+			fmt.Printf("  入口地址    %s   ← 粘贴进 Orca\n", s.Entry)
+			fmt.Printf("  控制通道    %s\n", s.Control)
+			fmt.Printf("  token 指纹  %s\n", s.TokenFP)
+			fmt.Printf("  更新时间    %s\n", s.UpdatedAt)
 			if flagShow {
 				token, err := config.LoadToken()
 				if err != nil || token == "" {
@@ -47,11 +47,16 @@ func statusCmd() *cobra.Command {
 				host, ctrl := splitHostPort(s.Control)
 				_, pub := splitHostPort(s.Entry)
 				u := tokenx.PairURL(host, ctrl, token, fp, pub)
-				fmt.Printf("\n配对链接（桌面机 tp connect 用，随时可在此取回）:\n  %s\n\n%s\n", u, address.RenderQR(u))
+				fmt.Printf("\n配对链接（tp connect 用，随时可取回）:\n  %s\n", u)
+				if flagQR {
+					fmt.Println()
+					fmt.Println(address.RenderQR(u))
+				}
 			}
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&flagShow, "show-pairing", false, "显示完整配对链接与二维码（含 token，勿外泄）")
+	cmd.Flags().BoolVar(&flagShow, "show-pairing", false, "显示完整配对链接（含 token，勿外泄）")
+	cmd.Flags().BoolVar(&flagQR, "qr", false, "同时显示配对链接二维码（配 --show-pairing）")
 	return cmd
 }

@@ -824,7 +824,9 @@ a:focus-visible,
 
 .term__line {
   display: block;
-  white-space: pre;
+  /* 长行折行显示，窗口小时不再横向截断（v1.5） */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .term__dim {
