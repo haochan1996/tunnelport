@@ -353,6 +353,24 @@ func (App) Connect(url string) error {
 	return begin(url)
 }
 
+// ClipboardText 配对页「从剪贴板读取」。
+func (App) ClipboardText() (string, error) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw")
+	case "darwin":
+		cmd = exec.Command("pbpaste")
+	default:
+		cmd = exec.Command("sh", "-c", "xclip -selection clipboard -o 2>/dev/null || wl-paste 2>/dev/null")
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("读不到剪贴板")
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // createShortcut 创建/重建桌面快捷方式（幂等，覆盖）。返回快捷方式路径。
 // v1.3：设置里「重新创建」入口，供用户误删后自助恢复。
 func createShortcut() (string, error) {

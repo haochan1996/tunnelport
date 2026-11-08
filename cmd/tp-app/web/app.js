@@ -277,6 +277,24 @@
       call("Logs", level, "").then(paintLogs).catch(function () {});
     }, 4000);
 
+    // 配对页：从剪贴板读取（免手粘，杜绝截断丢 #token）
+    var pasteBtn = q("#paste-clip");
+    if (pasteBtn) {
+      pasteBtn.addEventListener("click", function () {
+        call("ClipboardText").then(function (t) {
+          t = (t || "").trim();
+          var f = q("input.field, input[type=text]");
+          if (f) f.value = t;
+          if (!t) pasteBtn.textContent = "剪贴板为空";
+          else if (t.indexOf("tunnelport://REDACTED < 0) pasteBtn.textContent = "剪贴板里没有配对链接";
+          else {
+            pasteBtn.textContent = "已读取 ✓";
+            setTimeout(function () { pasteBtn.textContent = "从剪贴板读取"; }, 2000);
+          }
+        }).catch(function () {});
+      });
+    }
+
     // 配对页（pairing.html）：连接按钮
     var connectBtn = q("#connect");
     if (connectBtn) {

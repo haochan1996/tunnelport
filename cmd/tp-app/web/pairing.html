@@ -33,14 +33,14 @@
         </p>
 
         <div class="paste">
-          <input class="field" type="text" readonly
-                 value="tunnelport://REDACTED
+          <input class="field" type="text" autofocus
+                 placeholder="tunnelport://REDACTED
                  aria-label="配对链接">
           <button class="btn btn--primary" id="connect">连接</button>
         </div>
 
         <div class="pair__actions">
-          <button class="btn btn--ghost">从剪贴板读取</button>
+          <button class="btn btn--ghost" id="paste-clip">从剪贴板读取</button>
           <button class="linkish">配对码丢了？tp status --show-pairing</button>
         </div>
 

@@ -70,7 +70,17 @@ func Parse(s string) (Pair, error) {
 		p.Public, _ = strconv.Atoi(u.Query().Get("public"))
 		p.FP = u.Query().Get("fp")
 		if p.Token == "" || p.Host == "" || p.Control == 0 {
-			return p, fmt.Errorf("配对码不完整：缺少地址或 token")
+			miss := ""
+			if p.Host == "" || p.Control == 0 {
+				miss = "地址"
+			}
+			if p.Token == "" {
+				if miss != "" {
+					miss += "和"
+				}
+				miss += "#token 段（链接结尾的 #52位大写字母数字）"
+			}
+			return p, fmt.Errorf("配对码不完整：缺 %s。请点「从剪贴板读取」或完整复制 tunnelport:// 开头的整条链接", miss)
 		}
 	} else {
 		p.Token = strings.ToUpper(s)
