@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/user"
 	"path/filepath"
 	"time"
 )
@@ -24,10 +25,15 @@ type State struct {
 }
 
 // Dir 返回状态目录（~/.tunnelport），不存在则创建。
+// 鲁棒性：systemd/容器/cron 环境常无 $HOME —— 回退 passwd 主目录，再回退 /var/lib/tunnelport。
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+	if err != nil || home == "" {
+		if u, err2 := user.Current(); err2 == nil && u.HomeDir != "" {
+			home = u.HomeDir
+		} else {
+			home = "/var/lib/tunnelport"
+		}
 	}
 	d := filepath.Join(home, ".tunnelport")
 	if err := os.MkdirAll(d, 0o700); err != nil {
