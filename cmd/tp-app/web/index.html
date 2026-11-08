@@ -43,6 +43,7 @@
             <p class="page-meta">3 天 04:12:36 · RTT 41 ms · 24 h 内重连 0 次 · 托盘运行中</p>
           </div>
           <div class="page-actions">
+            <button class="btn btn--ghost" data-act="relink">更换配对码</button>
             <button class="btn btn--ghost" data-goto="doctor">重新诊断</button>
             <button class="btn btn--primary">暂停隧道</button>
           </div>
@@ -320,6 +321,11 @@
         <div class="danger-zone">
           <div class="label">配对与安全</div>
           <div class="srow">
+            <span class="srow__key">更换配对码</span>
+            <span class="srow__desc">配对码失效或换服务器时，重新粘贴新的配对链接</span>
+            <span class="srow__ctl"><button class="btn" data-act="relink">重新配对</button></span>
+          </div>
+          <div class="srow">
             <span class="srow__key">重置配对</span>
             <span class="srow__desc">重新生成 token，所有已配对手机需重新扫码；token 泄露时使用</span>
             <span class="srow__ctl"><button class="btn btn--danger">重置配对码</button></span>
@@ -394,8 +400,9 @@
     b.addEventListener("click", () => show(b.dataset.goto))
   );
 
-  /* deep link: index.html#doctor ---------------------------------------- */
-  const initial = location.hash.replace("#", "");
+  /* deep link: index.html#doctor 或 ?tab=doctor（webview 兼容） ---------- */
+  const _qp = new URLSearchParams(location.search);
+  const initial = location.hash.replace("#", "") || _qp.get("tab") || "";
   if (initial && document.getElementById("view-" + initial)) show(initial);
   if (initial === "qr") document.getElementById("qr-overlay").classList.add("is-open");
 

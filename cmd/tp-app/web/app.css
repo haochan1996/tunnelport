@@ -336,7 +336,10 @@ pre {
 }
 
 .view__in {
-  max-width: var(--wrap);
+  /* 流式自适应：内容列跟随窗口伸缩（不再固定 1120px 封顶） */
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: var(--s5) var(--s7) var(--s5);
 }

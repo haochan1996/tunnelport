@@ -207,6 +207,13 @@
       });
     }
 
+    // 更换配对码：回配对页重新粘贴链接（v1.3 恢复路径）
+    document.addEventListener("click", function (e) {
+      var t = e.target.closest('[data-act="relink"]');
+      if (!t) return;
+      location.href = "/pairing.html";
+    });
+
     // 桌面快捷方式：误删后一键重建（v1.3）
     var scBtn = document.getElementById("btn-shortcut");
     if (scBtn) {

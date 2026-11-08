@@ -486,8 +486,11 @@ func main() {
 	hasURL := false
 	if len(args) > 0 && strings.HasPrefix(args[0], tokenx.Scheme+"://") {
 		if err := begin(args[0]); err != nil {
-			fmt.Println("错误:", err)
-			os.Exit(1)
+			// 坏配对码不退出：进主界面失败态，可「更换配对码」恢复（v1.3）
+			st.mu.Lock()
+			st.state = "失败"
+			st.detail = err.Error()
+			st.mu.Unlock()
 		}
 		hasURL = true
 		for i := 1; i < len(args)-1; i++ {
@@ -523,7 +526,7 @@ func main() {
 		if v := os.Getenv("TP_TAB"); v != "" {
 			names := map[string]string{"1": "doctor", "2": "logs", "3": "settings", "0": "status"}
 			if n, ok := names[v]; ok && hasURL {
-				url = "/#" + n
+				url = "/?tab=" + n // query 兜底：webview 可能吃掉 #fragment
 			}
 		}
 		win := mygo.NewWindow(mygo.WindowOptions{
