@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tunnelport · 首次连接</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+
+  <div class="titlebar">
+    <div class="brand">
+      <span class="brand__mark">tp</span>
+      <span class="brand__name">tunnelport</span>
+      <span class="sticker">MVP 开发中</span>
+    </div>
+    <div class="winctl">
+      <button aria-label="最小化">—</button>
+      <button aria-label="最大化">▢</button>
+      <button class="winctl__close" aria-label="关闭">✕</button>
+    </div>
+  </div>
+
+  <div class="views">
+    <section class="view is-active" aria-label="配对">
+      <div class="pair">
+        <p class="pair__step">第 2 步 · 电脑上连接</p>
+        <h1>把配对链接粘进来，<br>手机就能找到这台电脑<span class="accent">。</span></h1>
+        <p class="pair__lede">
+          第 1 步在 VPS 上运行安装脚本后，输出里有一条 <code>tunnelport://REDACTED 配对链接。
+          粘贴到下面即可自动完成端口选择、证书指纹校验与开机自启 —— 不需要手动填 IP 和端口。
+        </p>
+
+        <div class="paste">
+          <input class="field" type="text" readonly
+                 value="tunnelport://REDACTED
+                 aria-label="配对链接">
+          <button class="btn btn--primary" id="connect">连接</button>
+        </div>
+
+        <div class="pair__actions">
+          <button class="btn btn--ghost">从剪贴板读取</button>
+          <button class="linkish">配对码丢了？tp status --show-pairing</button>
+        </div>
+
+        <p class="pair__note">引擎 自研 · 传输 TLS_AES_256_GCM_SHA384 · 无账号 · 无控制面 · MIT 开源</p>
+
+        <div class="divider">连接前自动检查</div>
+
+        <div class="precheck">
+          <div class="precheck__row">
+            <span class="precheck__n">01</span>
+            <span class="precheck__t"><strong>本地 Orca</strong> <span>— 127.0.0.1:6768 监听中</span></span>
+            <span class="precheck__s">✔ 就绪</span>
+          </div>
+          <div class="precheck__row">
+            <span class="precheck__n">02</span>
+            <span class="precheck__t"><strong>证书指纹</strong> <span>— 随配对码携带，防中间人</span></span>
+            <span class="precheck__s">✔ 就绪</span>
+          </div>
+          <div class="precheck__row">
+            <span class="precheck__n">03</span>
+            <span class="precheck__t"><strong>开机自启</strong> <span>— 注册 Windows 计划任务</span></span>
+            <span class="precheck__s">✔ 就绪</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="statusbar">
+    <span><strong>未连接</strong> · 等待配对链接</span>
+    <span class="sb-right">
+      <span>本机 127.0.0.1:6768</span>
+      <span>v0.1.0</span>
+    </span>
+  </div>
+
+</div>
+
+<script>
+  document.getElementById("connect").addEventListener("click", () => {
+    window.location.href = "index.html";
+  });
+</script>
+</body>
+</html>
