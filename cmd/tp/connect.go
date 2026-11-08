@@ -32,6 +32,7 @@ func connectCmd() *cobra.Command {
 		flagBin       string
 		flagTransport string
 		flagTerm      bool
+		flagEngine    string
 	)
 	cmd := &cobra.Command{
 		Use:   "connect",
@@ -41,21 +42,22 @@ func connectCmd() *cobra.Command {
 			if t == "" && len(args) > 0 {
 				t = args[0] // 允许位置参数：tp connect tunnelport://REDACTED
 			}
-			return runConnect(t, flagHost, flagPort, flagLocal, flagBin, flagTransport, flagTerm)
+			return runConnect(t, flagHost, flagPort, flagLocal, flagBin, flagTransport, flagTerm, flagEngine)
 		},
 	}
 	cmd.Flags().StringVar(&flagToken, "token", os.Getenv("TP_TOKEN"), "token 或完整配对 URL（tunnelport://REDACTED
 	cmd.Flags().StringVar(&flagHost, "host", "", "中继地址（用纯 token 时必填）")
 	cmd.Flags().IntVar(&flagPort, "port", envInt("TP_CONTROL_PORT", 0), "中继控制端口（URL 里自带，纯 token 时必填）")
 	cmd.Flags().IntVar(&flagLocal, "local-port", 6768, "本地 Orca 端口")
-	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（默认从 PATH 找）")
+	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（engine=rathole 时用）")
+	cmd.Flags().StringVar(&flagEngine, "engine", "native", "隧道引擎：native（默认，自研，杀软无特征）或 rathole")
 	cmd.Flags().StringVar(&flagTransport, "transport", "tls", "隧道传输：tls（默认，D-8）或 tcp（对端旧版本回退）")
 	cmd.Flags().BoolVar(&flagTerm, "tls-terminate", false,
 		"端到端模式：在本地终止 TLS，手机用 https://入口:端口 访问时内容全程加密（要求手机端接受自签证书）")
 	return cmd
 }
 
-func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagBin, flagTransport string, flagTerm bool) error {
+func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagBin, flagTransport string, flagTerm bool, flagEngine string) error {
 	mustStateDir()
 	if tokenArg == "" {
 		return fmt.Errorf("缺少 --token；手机扫码或在 VPS 上运行 tp serve 可获得")
@@ -199,7 +201,7 @@ func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagBin, fla
 			{Name: engine.ServiceHealth, LocalAddr: net.JoinHostPort("127.0.0.1", strconv.Itoa(engine.HealthPort))},
 		},
 	}
-	eng := engine.NewRathole()
+	eng := newEngine(flagEngine)
 	if err := eng.Start(ctx, engCfg); err != nil {
 		return err
 	}
@@ -218,19 +220,26 @@ func runConnect(tokenArg, flagHost string, flagPort, flagLocal int, flagBin, fla
 		PID:     os.Getpid(),
 	})
 
+	phoneAddr := fmt.Sprintf("%s:%d", host, p.Public)
+	if flagTerm {
+		phoneAddr = "https://" + phoneAddr // 端到端模式：手机走 https
+	}
 	fmt.Printf(`
 ──────────────────────────────────────────────────
- 已连接中继 %s:%d  %s  (tls=%s)
+ 已连接中继 %s:%d  %s  (tls=%s)  ✓ 链路就绪
 
- 手机 Orca 填写入口地址:
-   %s:%d
+ ② 把下面的地址粘贴到 Orca 桌面端「自定义网络地址」:
+   %s
+
+ ③ 手机配对：Orca 桌面端 Set up Mobile → 生成配对二维码 → 手机 Orca 扫码
 
  验证外部可达（手机 4G 打开）:
    %s
 
- Ctrl-C 停止；本进程断线会自动重连（1s→30s 退避）。
+ 提示：不要在 Orca 里填 wss:// 开头的地址（桌面端已知不兼容）。
+ Ctrl-C 停止；本进程断线自动重连（1s→30s 退避）。
 ──────────────────────────────────────────────────
-`, host, port, version, flagTransport, host, flagLocal, address.HealthURL(host, engine.HealthPort))
+`, host, port, version, flagTransport, phoneAddr, address.HealthURL(host, engine.HealthPort))
 
 	<-ctx.Done()
 	fmt.Println("\n正在停止…")

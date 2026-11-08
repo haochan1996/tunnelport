@@ -107,5 +107,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          draft: true
+          draft: false
+          prerelease: true
           files: dist/*

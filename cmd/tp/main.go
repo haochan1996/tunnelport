@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/haochan1996/tunnelport/internal/config"
+	"github.com/haochan1996/tunnelport/internal/engine"
 )
 
 // version 由 CI 通过 ldflags 注入。
@@ -52,4 +53,14 @@ func mustStateDir() string {
 		os.Exit(1)
 	}
 	return d
+}
+
+// newEngine 按 --engine 选择实现：native（默认，自研，无杀软特征）/ rathole（逃生舱）。
+func newEngine(name string) engine.Engine {
+	switch name {
+	case "rathole":
+		return engine.NewRathole()
+	default:
+		return engine.NewNative()
+	}
 }

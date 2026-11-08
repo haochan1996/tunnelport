@@ -206,3 +206,22 @@ func short(fp string) string {
 	}
 	return fp
 }
+
+// TLSProbe 只做 TLS 握手并返回证书指纹（不写任何文件）。
+// 用于 doctor 的 TLS 层探测：区分"TCP 通但 TLS 被掐"这类复杂网络问题。
+func TLSProbe(host string, port int) (string, error) {
+	d := &tls.Dialer{
+		NetDialer: &net.Dialer{Timeout: 5 * time.Second},
+		Config:    &tls.Config{InsecureSkipVerify: true}, //nolint:gosec —— 仅探测，不做校验
+	}
+	conn, err := d.DialContext(context.Background(), "tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return "", err
+	}
+	state := conn.(*tls.Conn).ConnectionState()
+	_ = conn.Close()
+	if len(state.PeerCertificates) == 0 {
+		return "", errors.New("对端未出示证书")
+	}
+	return Fingerprint(state.PeerCertificates[0]), nil
+}

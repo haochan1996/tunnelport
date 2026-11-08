@@ -49,8 +49,10 @@ type Config struct {
 	// Transport: "tls"（默认，D-8 链路加密）或 "tcp"（对端旧版本回退）。
 	// tls 时 serve 需要 CertP12（PKCS#12），connect 需要 CertRoot（受信根 PEM）。
 	Transport string
-	CertP12   string
-	CertRoot  string
+	CertP12   string // rathole 用（PKCS#12）
+	CertRoot  string // 客户端受信根 PEM（两种引擎共用）
+	CertPem   string // 自研引擎用：服务端证书 PEM
+	CertKey   string // 自研引擎用：服务端私钥 PEM
 }
 
 // Engine 隧道引擎接口。

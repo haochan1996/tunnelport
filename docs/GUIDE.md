@@ -59,7 +59,16 @@ tp 使用**三个连续端口**，由 `--port-base` 一次性确定：
 
 ## 2. 部署入口：tp serve
 
-### 2.1 方式一：Docker（推荐）
+### 2.0 一键部署（推荐，一条命令）
+
+```sh
+curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
+```
+
+自动完成：下载安装 → 注册开机自启（崩溃自动重启）→ 打印地址 / 配对链接 / 二维码。
+之后就是三步：**① 防火墙放行端口段 → ② 地址粘贴到 Orca 桌面端 → ③ 手机扫码**。
+
+### 2.1 方式二：Docker（NAS / 容器环境）
 
 ```sh
 docker run -d --name tp-serve --restart unless-stopped \
@@ -79,7 +88,7 @@ docker run -d --name tp-serve --restart unless-stopped \
 docker logs tp-serve
 ```
 
-### 2.2 方式二：二进制
+### 2.2 方式三：二进制手动
 
 ```sh
 ./tp-linux serve --bind 0.0.0.0 --port-base 30123 --rathole ./rathole
@@ -127,16 +136,21 @@ tp connect --token <token> --host YOUR_VPS_IP --port 30123
 
 ---
 
-## 4. 手机 Orca 配置
+## 4. Orca 配置与手机配对（3 步）
 
-在 Orca 的「自定义网络地址」里填入口地址：
+**② 地址粘贴到 Orca 桌面端**：打开 Orca「自定义网络地址」，粘贴入口地址：
 
 | 模式 | 填写内容 | 说明 |
 |---|---|---|
-| 标准 | `YOUR_VPS_IP:30124` | IP:端口 形式 |
-| 端到端加密 | `https://YOUR_VPS_IP:30124` | TLS 直达你的桌面，中继只见密文（需手机端接受自签证书，待真机验证） |
+| 标准 | `YOUR_VPS_IP:30124` | IP:端口（Orca 示例同款：home.example.com:8443） |
+| 端到端加密 | `https://YOUR_VPS_IP:30124` | TLS 直达你的桌面，中继只见密文 |
 
-**验证外部可达**：手机**关掉 Wi-Fi 用 4G**，浏览器打开
+> ⚠ 不要填 `wss://…` 形式（Orca 桌面端已知不兼容，stablyai/orca#9746）。
+
+**③ 手机配对**：Orca 桌面端打开 **Set up Mobile** → 桌面显示配对二维码 →
+手机 Orca 扫码即连。二维码由 Orca 生成，无需任何手工配对码。
+
+**验证外部可达**（可选）：手机**关掉 Wi-Fi 用 4G**，浏览器打开
 `http://YOUR_VPS_IP:30125/health`——看到 `OK rtt=…ms` 即全链路通畅。
 
 ---

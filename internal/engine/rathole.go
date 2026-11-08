@@ -43,8 +43,13 @@ func NewRathole() *rathole { return &rathole{} }
 
 func (r *rathole) Start(ctx context.Context, cfg Config) error {
 	if cfg.RatholeBin == "" {
-		cfg.RatholeBin = "rathole"
+		bin, err := resolveBin()
+		if err != nil {
+			return err
+		}
+		cfg.RatholeBin = bin
 	}
+	// 注意：不内嵌 rathole（D-13）：HackTool/Rathole.a 专杀特征会连带标记宿主二进制
 	tmp := cfg.TempDir
 	if tmp == "" {
 		d, err := os.MkdirTemp("", "tunnelport-*")
@@ -77,6 +82,20 @@ func (r *rathole) Start(ctx context.Context, cfg Config) error {
 
 // maxEngineLog 引擎日志单文件上限（FR-9.1 轮转的简化版：超限滚动为 .old）。
 const maxEngineLog = 5 << 20 // 5 MB
+
+// resolveBin 解析隧道引擎：--rathole 显式指定 > PATH 查找。
+// 不内嵌 rathole（D-13）：腾讯管家等以 HackTool/Rathole.a 专杀特征按内容识别，
+// 内嵌特征字节会把宿主二进制连带标记；运行时提取同样落盘被秒删。
+// Windows 桌面推荐在 WSL/Docker 内运行 connect（杀软不扫 WSL 文件系统，实测验证）。
+func resolveBin() (string, error) {
+	if p, err := exec.LookPath("rathole"); err == nil {
+		return p, nil
+	}
+	if p, err := exec.LookPath("rathole.exe"); err == nil {
+		return p, nil
+	}
+	return "", fmt.Errorf("PATH 中未找到 rathole：用 --rathole 指定路径（Windows 下建议在 WSL 中运行，避免杀软拦截，见 docs/GUIDE.md）")
+}
 
 // engineLog 打开日志文件（追加）；超过上限时滚动为 engine.log.old，防止无限增长
 // （2026-11-08 稳定性审查 #4）。
@@ -204,7 +223,7 @@ func (r *rathole) handleEarlyExit(ctx context.Context, t0 time.Time, waitErr err
 	if died < 1500*time.Millisecond && tail == "" {
 		// 日志里什么都没有就消失 = 大概率被安全软件静默查杀。
 		set(Failed, "引擎启动后立刻消失且无日志",
-			"你的安全软件（如腾讯管家 / 360 / Defender）可能拦截了 rathole（TP-6001）。把 tp 和 rathole 加入白名单后重试")
+			"你的安全软件删除了 rathole（TP-6001，实测腾讯管家按 HackTool/Rathole.a 特征拦截）。处理：① 把 rathole 所在目录加入杀软信任区（腾讯管家：设置→信任区→添加目录）；② 或改在 WSL/Docker 中运行（杀软不扫 WSL 文件系统）；详见 docs/GUIDE.md")
 		*attempt = 10 // 不再无意义重试
 		return
 	}

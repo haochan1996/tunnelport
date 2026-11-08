@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -30,12 +31,14 @@ func serveCmd() *cobra.Command {
 		flagBin      string
 		flagEntry    string
 		flagPortBase int
+		flagEngine   string
+		flagRegen    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "在有公网的机器上起中继，输出地址 / token / 二维码",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(flagPort, flagBind, flagToken, flagPublic, flagHealth, flagBin, flagEntry, flagPortBase)
+			return runServe(flagPort, flagBind, flagToken, flagPublic, flagHealth, flagBin, flagEntry, flagPortBase, flagEngine, flagRegen)
 		},
 	}
 	cmd.Flags().IntVar(&flagPort, "port", envInt("TP_PORT", 0), "控制通道端口（默认在 30000–40000 自动选）")
@@ -44,12 +47,14 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().IntVar(&flagPublic, "public-port", envInt("TP_PUBLIC_PORT", 6768), "对外暴露的服务端口（手机连这个；被占用时自动顺延并提示）")
 	cmd.Flags().IntVar(&flagHealth, "health-port", envInt("TP_HEALTH_PORT", engine.HealthPort), "健康端点端口（高级覆盖，与 --port-base 互斥）")
 	cmd.Flags().IntVar(&flagPortBase, "port-base", envInt("TP_PORT_BASE", 0), "基座端口：三个端口连续占用 base/base+1/base+2（防火墙可放行一段）。显式指定被占用将报错。默认自动选择")
-	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（默认从 PATH 找）")
+	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（engine=rathole 时用）")
+	cmd.Flags().StringVar(&flagEngine, "engine", "native", "隧道引擎：native（默认，自研，杀软无特征）或 rathole")
+	cmd.Flags().BoolVar(&flagRegen, "regenerate", false, "重新生成 token（默认复用已保存的；重置后所有客户端需重新配对）")
 	cmd.Flags().StringVar(&flagEntry, "entry-host", os.Getenv("TP_ENTRY_HOST"), "显式指定入口主机（覆盖自动检测；代理/软路由网络或 DDNS 域名必填）")
 	return cmd
 }
 
-func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHealth int, flagBin, flagEntry string, flagPortBase int) error {
+func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHealth int, flagBin, flagEntry string, flagPortBase int, flagEngine string, flagRegen bool) error {
 	mustStateDir()
 
 	// 容器内端口必须显式给（FR-2.5）。
@@ -57,14 +62,26 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 		return fmt.Errorf("容器模式必须指定端口，推荐基座三连:\n  docker run -d --restart unless-stopped -e TP_ROLE=serve -e TP_PORT_BASE=30123 -e TP_TOKEN=<t> -p 30123-30125:30123-30125 -v tp-state:/root/.tunnelport tunnelport")
 	}
 
-	// token：命令行 / 环境变量 / 自动生成。
-	token := flagToken
+	// token：命令行 > 持久化复用（重启不变，配对码不失效）> 自动生成。
+	// 需要换 token 时用 --regenerate（重新配对所有客户端）。
+	token := strings.TrimSpace(flagToken)
 	if token == "" {
-		t, err := tokenx.New()
-		if err != nil {
-			return err
+		if !flagRegen {
+			if t, err := config.LoadToken(); err == nil && t != "" && tokenx.Valid(t) {
+				token = t
+				fmt.Println("复用已保存的 token（--regenerate 可重置，重置后需重新配对）")
+			}
 		}
-		token = t
+		if token == "" {
+			t, err := tokenx.New()
+			if err != nil {
+				return err
+			}
+			token = t
+			if err := config.SaveToken(token); err != nil {
+				fmt.Println("⚠ token 未能加密保存（不影响本次运行）:", err)
+			}
+		}
 	}
 	if !tokenx.Valid(token) {
 		return fmt.Errorf("token 不合法（应为 52 位 Base32，可用 --token 留空自动生成）")
@@ -143,13 +160,15 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 		}
 	}
 
-	eng := engine.NewRathole()
+	eng := newEngine(flagEngine)
 	engCfg := engine.Config{
 		Role:        "serve",
 		Bind:        flagBind,
 		ControlPort: ctrl,
 		Token:       token,
 		RatholeBin:  flagBin,
+		CertPem:     filepath.Join(dir, "cert.pem"),
+		CertKey:     filepath.Join(dir, "key.pem"),
 		Transport:   "tls",
 		CertP12:     filepath.ToSlash(filepath.Join(dir, "identity.p12")),
 		Services: []engine.Service{
