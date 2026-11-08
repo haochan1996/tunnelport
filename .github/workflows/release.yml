@@ -135,10 +135,19 @@ jobs:
     needs: [build, sign]
     runs-on: ubuntu-latest
     steps:
+      # 只取构建产物：unsigned-windows 与 bin-windows-* 同名文件会在 merge-multiple 解压冲突
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+          pattern: bin-*
+      # 签名产物（未配 SignPath 时不存在，忽略）
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: signed
+          merge-multiple: true
+          pattern: signed-windows
       - name: Prefer signed Windows binaries
         run: |
           if [ -d signed ]; then cp -f signed/* dist/ 2>/dev/null || true; fi
