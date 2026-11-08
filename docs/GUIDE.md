@@ -50,13 +50,10 @@ tp 使用**三个连续端口**，由 `--port-base` 一次性确定：
 ### 1.3 下载
 
 从 [Releases](https://github.com/haochan1996/tunnelport/releases) 下载对应平台的
-`tp_<os>_<arch>`，校验 `SHA256SUMS`；隧道引擎 rathole 单独下载：
+`tp_<os>_<arch>`，校验 `SHA256SUMS`。**隧道引擎已内置（自研 Go 引擎），单二进制即全部**，
+无需下载任何额外组件。
 
-```sh
-# Linux x86_64
-curl -LO https://github.com/rathole-org/rathole/releases/download/v0.5.0/rathole-x86_64-unknown-linux-gnu.zip
-unzip rathole-x86_64-unknown-linux-gnu.zip
-```
+> `--engine rathole` 为可选逃生舱（需自备 rathole 二进制），普通用户用不到。
 
 ---
 
@@ -186,6 +183,9 @@ tp logs -n 50      # 看引擎最近日志
 这是隧道类工具的普遍情况：国产杀软（腾讯管家 / 360 / 火绒）对隧道引擎有专杀特征
 （rathole 被识别为 `HackTool` 并在落盘瞬间删除；frp 等同类工具同理）——不是 tp 的问题，
 也不是病毒。三条处理路径：
+
+> **好消息**：v0.1.5 起默认使用自研 Go 引擎——它不在任何杀软特征库中，
+> 上述拦截问题对默认安装不复存在。以下仅在使用 `--engine rathole` 逃生舱时适用。
 
 1. **WSL（推荐）**：Windows 10/11 自带。在 WSL 里跑 `tp connect` 不受影响
    （杀软不扫描 WSL 文件系统，实测验证）：
