@@ -32,6 +32,10 @@ type appState struct {
 	localHost string
 	localPort int
 
+	setupMode bool
+	pasteURL  string
+	setupErr  string
+
 	eng     engine.Engine
 	status  string
 	detail  string
@@ -44,12 +48,13 @@ var s appState
 
 func main() {
 	args := os.Args[1:]
-	if len(args) == 0 || !strings.HasPrefix(args[0], tokenx.Scheme+"://") {
-		fmt.Println("用法: tp-app <tunnelport://REDACTED [--local-host IP] [--local-port N]")
-		fmt.Println("（配对码可用 tp status --show-pairing 取回）")
-		os.Exit(1)
+	if len(args) == 0 {
+		// 首启：图形界面粘贴配对链接（软件体验，无需命令行）
+		s.setupMode = true
+		s.status = "未连接"
+	} else {
+		s.pairURL = args[0]
 	}
-	s.pairURL = args[0]
 	s.localHost, s.localPort = "127.0.0.1", 6768
 	s.status, s.detail = "连接中…", ""
 	for i := 1; i < len(args)-1; i++ {
@@ -60,14 +65,13 @@ func main() {
 			s.localPort, _ = strconv.Atoi(args[i+1])
 		}
 	}
-	p, err := tokenx.Parse(s.pairURL)
-	if err != nil {
-		fmt.Println("错误:", err)
-		os.Exit(1)
-	}
-	s.phone = fmt.Sprintf("%s:%d", p.Host, p.Public)
-	s.health = fmt.Sprintf("http://%s:%d/health", p.Host, p.Public+1)
 	s.autoOn = autoStartEnabled()
+	if !s.setupMode {
+		if err := begin(s.pairURL); err != nil {
+			fmt.Println("错误:", err)
+			os.Exit(1)
+		}
+	}
 
 	mygo.App.SetName("tunnelport")
 	mygo.App.WhenReady(func() {
@@ -76,9 +80,27 @@ func main() {
 			Width: 520, Height: 700,
 			Content: ui.View(view),
 		})
-		go startEngine(p)
+		if !s.setupMode {
+			p, _ := tokenx.Parse(s.pairURL)
+			go startEngine(p)
+		}
 	})
 	_ = mygo.App.Run()
+}
+
+// begin 校验配对链接并启动隧道（首启与命令行共用）。
+func begin(url string) error {
+	p, err := tokenx.Parse(strings.TrimSpace(url))
+	if err != nil {
+		return err
+	}
+	s.pairURL = url
+	s.phone = fmt.Sprintf("%s:%d", p.Host, p.Public)
+	s.health = fmt.Sprintf("http://%s:%d/health", p.Host, p.Public+1)
+	s.setupMode = false
+	s.status = "连接中…"
+	go startEngine(p)
+	return nil
 }
 
 // startEngine 进程内启动隧道，周期刷新状态。
@@ -129,6 +151,30 @@ func refresh() {
 // 顶栏 + 状态胶囊、圆角卡片（16r）、MD 间距（8 网格）、Filled/Outlined 按钮。
 func view(c *ui.Context) {
 	th := c.Theme()
+
+	// 首启：粘贴配对链接（软件式体验）
+	if s.setupMode {
+		ui.Row(c).Fill().AlignItems(ui.Center).Gap(12).Padding(28, 28, 8).Children(func() {
+			ui.Text(c, "tunnelport").FontSize(21).Bold()
+		})
+		ui.Column(c).Fill().Padding(24, 8, 28).Gap(14).Children(func() {
+			ui.Column(c).Fill().Radius(16).Padding(18).Gap(12).Background(th.Surface).Children(func() {
+				ui.Text(c, "连接你的 Orca").FontSize(17).Bold()
+				ui.Text(c, "粘贴 VPS 端输出的配对链接（tunnelport://REDACTED
+				ui.EditableText(c, &s.pasteURL).Border(1, th.Border).Radius(10).Padding(12).Fill()
+				if s.setupErr != "" {
+					ui.Text(c, s.setupErr).FontSize(12.5).TextColor(th.Danger)
+				}
+				ui.PrimaryButton(c, "连接").OnClick(func() {
+					if err := begin(s.pasteURL); err != nil {
+						s.setupErr = err.Error()
+					}
+				})
+			})
+			ui.Text(c, "配对链接在 VPS 端 tp serve 的输出里（也可用 tp status --show-pairing 取回）").FontSize(12.5).TextColor(th.TextMuted)
+		})
+		return
+	}
 
 	// 顶栏：标题 + 状态胶囊
 	ui.Row(c).Fill().AlignItems(ui.Center).Gap(12).Padding(28, 28, 8).Children(func() {
