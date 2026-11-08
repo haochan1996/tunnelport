@@ -28,38 +28,23 @@ curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh
 
 然后在云控制台**放行输出里提示的 TCP 端口段**（默认 30000-30002）。
 
-> 安装脚本兼容 **Linux（x86_64/arm64）、macOS（x86_64/arm64）、Windows（PowerShell）**——全部一条命令，不需要手动下载。Docker 见文末。
+> 服务端一键脚本（进阶）：Linux / macOS `curl | sh`、Windows `irm | iex`；Docker 见文末。日常用户直接下载软件即可。
 
 ---
 
-## 第 2 步 · 电脑上连接
+## 第 2 步 · 电脑装桌面软件（下载即用）
 
-**macOS（一条命令，含开机自启）：**
+从 [Releases](https://github.com/haochan1996/tunnelport/releases) 下载 **`tunnelport_`** 开头的桌面软件
+（Windows / macOS / Linux 都有），然后：
 
-```sh
-curl -fsSL https://haochan1996.github.io/tunnelport/install.sh | sh -s -- connect <第 1 步的配对链接>
-```
+1. **双击打开**
+2. 在输入框**粘贴第 1 步的配对链接** → 点「连接」
+3. 看到「已连接」即成功——软件保持连接、自动重连；勾选「开机自动连接」后重启也无感
 
-**Windows（一条命令，含开机自启）** —— 在 PowerShell 窗口里直接粘贴：
+没有命令行、没有配置文件。配对码丢了不用慌：`tp status --show-pairing` 随时取回。
 
-```powershell
-$env:TP_ROLE='connect'; $env:TP_URL='<第 1 步的配对链接>'; irm https://haochan1996.github.io/tunnelport/install.ps1 | iex
-```
+> 有 NAS 的用户可让 NAS 替电脑连接（电脑零安装）：`tp connect <配对链接> --local-host <电脑的局域网IP>`（进阶）。
 
-> 在 cmd（黑窗）里用这条（注意外层用单引号，避免变量被提前展开）：
-> `powershell -c "$env:TP_ROLE='connect'; $env:TP_URL='<配对链接>'; irm https://haochan1996.github.io/tunnelport/install.ps1 | iex"`
-
-配对码丢了不用慌：`tp status --show-pairing` 随时取回。
-
-**有 NAS 的用户（电脑零安装）**：connect 跑在 NAS 上，转发指向电脑：
-
-```sh
-tp connect <配对链接> --local-host <电脑的局域网IP>
-```
-
-看到「已连接」即成功。**保持它运行**（自动重连；开机自启见文末）。
-
----
 
 ## 第 3 步 · 手机连上（Orca 自带配对）
 
