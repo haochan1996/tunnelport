@@ -22,37 +22,39 @@ import (
 
 func serveCmd() *cobra.Command {
 	var (
-		flagPort   int
-		flagBind   string
-		flagToken  string
-		flagPublic int
-		flagHealth int
-		flagBin    string
-		flagEntry  string
+		flagPort     int
+		flagBind     string
+		flagToken    string
+		flagPublic   int
+		flagHealth   int
+		flagBin      string
+		flagEntry    string
+		flagPortBase int
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "在有公网的机器上起中继，输出地址 / token / 二维码",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(flagPort, flagBind, flagToken, flagPublic, flagHealth, flagBin, flagEntry)
+			return runServe(flagPort, flagBind, flagToken, flagPublic, flagHealth, flagBin, flagEntry, flagPortBase)
 		},
 	}
 	cmd.Flags().IntVar(&flagPort, "port", envInt("TP_PORT", 0), "控制通道端口（默认在 30000–40000 自动选）")
 	cmd.Flags().StringVar(&flagBind, "bind", "0.0.0.0", "控制通道监听地址")
 	cmd.Flags().StringVar(&flagToken, "token", os.Getenv("TP_TOKEN"), "指定 token（默认自动生成）")
 	cmd.Flags().IntVar(&flagPublic, "public-port", envInt("TP_PUBLIC_PORT", 6768), "对外暴露的服务端口（手机连这个；被占用时自动顺延并提示）")
-	cmd.Flags().IntVar(&flagHealth, "health-port", envInt("TP_HEALTH_PORT", engine.HealthPort), "对外暴露的健康端点端口（被占用时自动顺延并提示）")
+	cmd.Flags().IntVar(&flagHealth, "health-port", envInt("TP_HEALTH_PORT", engine.HealthPort), "健康端点端口（高级覆盖，与 --port-base 互斥）")
+	cmd.Flags().IntVar(&flagPortBase, "port-base", envInt("TP_PORT_BASE", 0), "基座端口：三个端口连续占用 base/base+1/base+2（防火墙可放行一段）。显式指定被占用将报错。默认自动选择")
 	cmd.Flags().StringVar(&flagBin, "rathole", "", "rathole 可执行文件路径（默认从 PATH 找）")
 	cmd.Flags().StringVar(&flagEntry, "entry-host", os.Getenv("TP_ENTRY_HOST"), "显式指定入口主机（覆盖自动检测；代理/软路由网络或 DDNS 域名必填）")
 	return cmd
 }
 
-func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHealth int, flagBin, flagEntry string) error {
+func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHealth int, flagBin, flagEntry string, flagPortBase int) error {
 	mustStateDir()
 
 	// 容器内端口必须显式给（FR-2.5）。
-	if dockerMode() && os.Getenv("TP_PORT") == "" && flagPort == 0 {
-		return fmt.Errorf("容器模式必须指定端口，例如:\n  docker run -e TP_ROLE=serve -e TP_PORT=30123 -e TP_TOKEN=<t> -p 30123:30123 -p 6768:6768 -p 6769:6769 tunnelport")
+	if dockerMode() && os.Getenv("TP_PORT") == "" && os.Getenv("TP_PORT_BASE") == "" && flagPort == 0 && flagPortBase == 0 {
+		return fmt.Errorf("容器模式必须指定端口，推荐基座三连:\n  docker run -d --restart unless-stopped -e TP_ROLE=serve -e TP_PORT_BASE=30123 -e TP_TOKEN=<t> -p 30123-30125:30123-30125 -v tp-state:/root/.tunnelport tunnelport")
 	}
 
 	// token：命令行 / 环境变量 / 自动生成。
@@ -80,10 +82,35 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 		return fmt.Errorf("生成 TLS 证书失败: %w", err)
 	}
 
-	// 控制通道端口。
-	ctrl, err := detect.PickPort(flagPort)
-	if err != nil {
-		return err
+	// 端口分配（FR-2.3 v1.4）：
+	//   --port-base N（推荐）→ 控制口=N、Orca 口=N+1、健康口=N+2，三连整块；
+	//   显式基座被占用 → 报错（用户可能已按该段放行防火墙，擅自换反而坑人）；
+	//   未指定 → 自动找三连空闲块；使用单端口高级参数时 → 走独立分配。
+	var ctrl, publicPort, healthPort int
+	customIndividual := flagPort != 0 || flagPublic != 6768 || flagHealth != engine.HealthPort
+	switch {
+	case flagPortBase > 0 && customIndividual:
+		return fmt.Errorf("--port-base 与 --port/--public-port/--health-port 互斥，二选一")
+	case flagPortBase > 0:
+		base := detect.NextFreeBase(flagPortBase, 3)
+		if base != flagPortBase {
+			return fmt.Errorf("端口 %d-%d 被占用（或含保留端口）。若已放行的是另一段，换 --port-base；或去掉 --port-base 让 tp 自动选择", flagPortBase, flagPortBase+2)
+		}
+		ctrl, publicPort, healthPort = base, base+1, base+2
+	case customIndividual:
+		c, err := detect.PickPort(flagPort)
+		if err != nil {
+			return err
+		}
+		ctrl = c
+		publicPort = flagPublic
+		healthPort = flagHealth
+	default:
+		base := detect.NextFreeBase(30000, 3)
+		if base == 0 {
+			return fmt.Errorf("30000 起未找到连续三个可用端口，请用 --port-base 指定基座")
+		}
+		ctrl, publicPort, healthPort = base, base+1, base+2
 	}
 
 	// 展示地址：显式指定 > 自动检测 > 本机回退。
@@ -104,15 +131,16 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 		fmt.Printf("⚠ 控制端口与服务端口同为 %d，服务端口已顺延为 %d。\n", ctrl, flagPublic)
 	}
 
-	// 服务端口冲突自动顺延（FR-8.2）：端口被别的程序占用时，rathole 的绑定失败只
-	// 会埋在引擎日志里，用户无从得知 —— 必须在启动阶段解决（稳定性审查后置）。
-	if alt := detect.NextFreePort(flagPublic); alt != flagPublic {
-		fmt.Printf("⚠ 端口 %d 被占用，已自动改用 %d。手机 Orca 请填 %s:%d\n", flagPublic, alt, entryHost, alt)
-		flagPublic = alt
-	}
-	if alt := detect.NextFreePort(flagHealth, flagPublic); alt != flagHealth {
-		fmt.Printf("⚠ 健康端点端口 %d 被占用，已自动改用 %d。\n", flagHealth, alt)
-		flagHealth = alt
+	// 独立模式下的服务端口冲突顺延（FR-8.2）；三连模式已在 NextFreeBase 保证整块空闲
+	if customIndividual {
+		if alt := detect.NextFreePort(publicPort, ctrl); alt != publicPort {
+			fmt.Printf("⚠ 端口 %d 被占用，已自动改用 %d。手机 Orca 请填 %s:%d\n", publicPort, alt, entryHost, alt)
+			publicPort = alt
+		}
+		if alt := detect.NextFreePort(healthPort, ctrl, publicPort); alt != healthPort {
+			fmt.Printf("⚠ 健康端点端口 %d 被占用，已自动改用 %d。\n", healthPort, alt)
+			healthPort = alt
+		}
 	}
 
 	eng := engine.NewRathole()
@@ -125,8 +153,8 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 		Transport:   "tls",
 		CertP12:     filepath.ToSlash(filepath.Join(dir, "identity.p12")),
 		Services: []engine.Service{
-			{Name: engine.ServiceOrca, PublicPort: flagPublic},
-			{Name: engine.ServiceHealth, PublicPort: flagHealth},
+			{Name: engine.ServiceOrca, PublicPort: publicPort},
+			{Name: engine.ServiceHealth, PublicPort: healthPort},
 		},
 	}
 	if err := eng.Start(ctx, engCfg); err != nil {
@@ -158,7 +186,7 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 
  指纹: %s
  证书指纹: %s
-`, version, address.EntryURL(entryHost, flagPublic), token, config.Fingerprint(token), certFp)
+`, version, address.EntryURL(entryHost, publicPort), token, config.Fingerprint(token), certFp)
 
 	fmt.Printf(`
  下一步
@@ -171,13 +199,13 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
  配对链接（含控制端口 + 证书指纹，防中间人）:
    %s
 
- ⚠ 记得在云厂商安全组放行 TCP: %d, %d, %d
+ ⚠ 记得在云厂商安全组放行 TCP: %d-%d（连续三端口）
    （控制通道 / Orca 服务 / 健康端点）
 ──────────────────────────────────────────────────
 
 配对二维码（手机相机直接扫）:
 %s
-`, token, entryHost, address.HealthURL(entryHost, engine.HealthPort), tokenx.PairURL(entryHost, ctrl, token, certFp, flagPublic), ctrl, flagPublic, engine.HealthPort, address.RenderQR(tokenx.PairURL(entryHost, ctrl, token, certFp, flagPublic)))
+`, token, entryHost, address.HealthURL(entryHost, healthPort), tokenx.PairURL(entryHost, ctrl, token, certFp, publicPort), ctrl, healthPort, address.RenderQR(tokenx.PairURL(entryHost, ctrl, token, certFp, publicPort)))
 
 	if ipErr != nil {
 		fmt.Printf("⚠ 未检测到公网出口 IPv4（%v），上面地址按 %s 显示。\n", ipErr, entryHost)
