@@ -245,6 +245,12 @@
       b.addEventListener("click", function () {
         segBtns.forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
         logLv = LV[b.textContent.trim()] || 0;
+        if (logLv === 0) {
+          // 「全部」= 清除一切过滤（含搜索词）
+          logKw = "";
+          var si = q(".logbar input[type=search]");
+          if (si) si.value = "";
+        }
         refreshLogs();
       });
     });
@@ -502,12 +508,6 @@
       });
     }
 
-    // 日志屏：级别/搜索 → 重新拉取（简单轮询）
-    setInterval(function () {
-      if (!location.hash || location.hash.indexOf("logs") < 0) return;
-      var level = 0;
-      call("Logs", level, "").then(paintLogs).catch(function () {});
-    }, 4000);
 
     // 配对页回填上次成功配对的链接（v1.5：重新配对不再「找不到配对码」）
     var pairField = q(".pair .field");
@@ -578,7 +578,7 @@
     if (tickN % 3 === 1 || location.hash.indexOf("doctor") >= 0) {
       call("Doctor").then(function (d) { paintLedger(d.rows); paintDoctor(d); }).catch(function () {});
     }
-    if (location.hash.indexOf("logs") >= 0) call("Logs", logLv, logKw).then(paintLogs).catch(function () {});
+    if (q("#view-logs.is-active") || location.hash.indexOf("logs") >= 0) call("Logs", logLv, logKw).then(paintLogs).catch(function () {});
   }
 
   document.addEventListener("DOMContentLoaded", function () {
