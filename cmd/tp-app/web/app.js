@@ -389,6 +389,7 @@
       later.className = "btn btn--ghost";
       later.textContent = "稍后";
       bar.appendChild(msg); bar.appendChild(go); bar.appendChild(later);
+      bar.setAttribute("data-latest", u.latest);
       var host = q(".titlebar") || q(".app") || document.body;
       host.parentNode.insertBefore(bar, host.nextSibling);
       go.addEventListener("click", function () {
@@ -413,6 +414,16 @@
     function autoCheckUpdate() {
       call("CheckUpdate").then(function (u) {
         if (!u || !u.hasUpdate) return;
+        var bar = q("#update-banner");
+        if (bar) {
+          // 横幅文案是弹出时的快照，须随复查刷新（v1.0.14：曾出现横幅 v1.0.12/按钮 v1.0.13 各说各话）
+          if (bar.getAttribute("data-done") !== "1" && bar.getAttribute("data-latest") !== u.latest) {
+            var msg = q("span", bar);
+            if (msg) msg.textContent = "发现新版本 " + u.latest + "（当前 " + u.current + "）";
+            bar.setAttribute("data-latest", u.latest);
+          }
+          return;
+        }
         var dismissed = false;
         try { dismissed = localStorage.getItem(DISMISS_KEY + u.latest) === "1"; } catch (e) {}
         if (!dismissed) showUpdateBanner(u);

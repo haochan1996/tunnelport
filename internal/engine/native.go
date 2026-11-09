@@ -266,7 +266,7 @@ func (n *nativeEngine) runServer(ctx context.Context, cfg Config) error {
 
 func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config, sm *slotMan, pubBase int) {
 	defer conn.Close()
-	nlog("serve: 入站连接 %s，TLS 掉手中", conn.RemoteAddr())
+	nlog("serve: 入站连接 %s，TLS 握手中", conn.RemoteAddr())
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 	frame, err := readFrame(conn)
 	if err != nil {
@@ -392,7 +392,7 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 		nlog("client: 连接 %s:%d 失败: %v", cfg.Remote, cfg.RemotePort, err)
 		return fmt.Errorf("连接中继失败: %w", err)
 	}
-	nlog("client: 已连接 %s:%d，TLS 掉手中", cfg.Remote, cfg.RemotePort)
+	nlog("client: 已连接 %s:%d，TLS 握手中", cfg.Remote, cfg.RemotePort)
 	defer conn.Close()
 
 	services := map[string]string{}
