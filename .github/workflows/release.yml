@@ -40,6 +40,8 @@ jobs:
       - name: Embed Windows resources (VERSIONINFO + icon)
         if: matrix.os == 'windows'
         run: |
+          VER=${GITHUB_REF_NAME#v}  # 版本资源与 tag 自动同步
+          sed -i "s/[0-9]\+\.[0-9]\+\.[0-9]\+/$VER/g" cmd/tp/winres/winres.json cmd/tp-app/winres/winres.json
           go run github.com/tc-hib/go-winres@latest make --in cmd/tp/winres/winres.json --arch ${{ matrix.arch }} --out cmd/tp/winres.syso
           go run github.com/tc-hib/go-winres@latest make --in cmd/tp-app/winres/winres.json --arch ${{ matrix.arch }} --out cmd/tp-app/winres.syso
           mv cmd/tp/winres.syso_windows_${{ matrix.arch }}.syso cmd/tp/winres.syso

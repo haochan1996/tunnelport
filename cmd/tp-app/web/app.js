@@ -333,6 +333,13 @@
       backBtn.addEventListener("click", function () { location.href = "/"; });
     }
 
+    // 版本贴纸显示完整动态版本（v1.0.4 修复写死的"v1.0"）
+    call("Status").then(function (d) {
+      if (d && d.version) {
+        qa(".sticker").forEach(function (el) { el.textContent = d.version; });
+      }
+    }).catch(function () {});
+
     // 自动检查更新（v1.0.1）：启动 20s 后静默首查，每 6h 复查；有新版弹横幅
     var DISMISS_KEY = "tp-update-dismiss-";
     function showUpdateBanner(u) {
