@@ -52,7 +52,10 @@ jobs:
         run: |
           go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
             -o "dist/tp_${{ matrix.os }}_${{ matrix.arch }}${{ matrix.ext }}" ./cmd/tp
-          go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+          # Windows 桌面端必须 -H windowsgui：否则是控制台子系统，启动带常驻终端窗口
+          GUIFLAGS="-s -w -X main.version=${GITHUB_REF_NAME}"
+          if [ "${{ matrix.os }}" = "windows" ]; then GUIFLAGS="$GUIFLAGS -H windowsgui"; fi
+          go build -trimpath -ldflags "$GUIFLAGS" \
             -o "dist/tunnelport_${{ matrix.os }}_${{ matrix.arch }}${{ matrix.ext }}" ./cmd/tp-app
       - uses: actions/upload-artifact@v4
         with:
