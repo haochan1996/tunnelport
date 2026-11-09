@@ -351,7 +351,9 @@
     // 版本贴纸显示完整动态版本（v1.0.4 修复写死的"v1.0"）
     call("Status").then(function (d) {
       if (d && d.version) {
+        // 所有版本标识统一动态取值（贴纸 + 版本与许可行）：静态兜底永远可能被发版脚本漏掉
         qa(".sticker").forEach(function (el) { el.textContent = d.version; });
+        qa(".js-version").forEach(function (el) { el.textContent = d.version; });
       }
     }).catch(function () {});
 
