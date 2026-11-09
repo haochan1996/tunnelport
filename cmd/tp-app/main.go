@@ -244,7 +244,7 @@ func logLevelOf(l string) int {
 }
 
 func (App) Logs(level int, search string) ([]string, error) {
-	lines := tailLogs(300)
+	lines := tailLogs(500)
 	var out []string
 	for _, l := range lines {
 		if level > 0 && logLevelOf(l) != level {
@@ -255,10 +255,7 @@ func (App) Logs(level int, search string) ([]string, error) {
 		}
 		out = append(out, l)
 	}
-	if len(out) > 120 {
-		out = out[len(out)-120:]
-	}
-	return out, nil
+	return out, nil // 不再截断：固定时间窗，保证「全部」⊇ 任何筛选视图（v1.0.32）
 }
 
 // Copy 复制文本到剪贴板。

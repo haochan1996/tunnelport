@@ -118,7 +118,7 @@
     var host = q(".term", v) || q(".term__line", v)?.parentElement;
     if (!host) return;
     host.innerHTML = "";
-    (lines || []).slice(-60).forEach(function (l) {
+    (lines || []).forEach(function (l) {
       var d = document.createElement("div");
       var up = l.toUpperCase();
       var cls = " term__dim";
