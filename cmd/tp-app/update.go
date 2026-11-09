@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/egoist/mygo"
 	"io"
 	"net/http"
 	"os"
@@ -181,6 +182,26 @@ func (App) DoUpdate() (string, error) {
 	}
 	_ = os.Remove(old)
 	return "已更新到 " + u.Latest + "，重启应用生效", nil
+}
+
+// Restart 重启应用（更新完成后由界面调用）：延迟拉新进程，待本进程退出释放单实例锁。
+func (App) Restart() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if runtime.GOOS == "windows" {
+		// ping 作 2s 延时（start 等旧进程退出后再拉起，避免单实例锁误判）
+		_ = hiddenCmd("cmd", "/c", `ping -n 3 127.0.0.1 >nul & start "" "`+exe+`"`).Start()
+	} else {
+		_ = hiddenCmd("sh", "-c", `sleep 2; "`+exe+`" >/dev/null 2>&1 &`).Start()
+	}
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		quitting = true
+		mygo.App.Quit()
+	}()
+	return nil
 }
 
 // assetName 当前平台对应的发布资产名。

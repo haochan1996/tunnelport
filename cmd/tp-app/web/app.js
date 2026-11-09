@@ -352,9 +352,14 @@
       var host = q(".titlebar") || q(".app") || document.body;
       host.parentNode.insertBefore(bar, host.nextSibling);
       go.addEventListener("click", function () {
+        if (go.getAttribute("data-done") === "1") {
+          call("Restart").catch(function () {});
+          return;
+        }
         go.textContent = "更新中…";
-        call("DoUpdate").then(function (m) {
-          go.textContent = m || "已更新，重启生效";
+        call("DoUpdate").then(function () {
+          go.setAttribute("data-done", "1");
+          go.textContent = "已更新 · 点击重启";
           later.remove();
         }).catch(function (e) {
           go.textContent = String((e && e.message) || e);
@@ -427,12 +432,19 @@
             updBtn.textContent = "检查失败，重试";
             updBtn.title = String((e && e.message) || e || "");
           });
+        } else if (updState === 4) {
+          call("Restart").catch(function () {});
         } else if (updState === 1) {
           updState = 3;
           updBtn.textContent = "更新中…";
           call("DoUpdate").then(function (msg) {
-            updState = 2;
-            updBtn.textContent = msg.indexOf("重启") >= 0 ? "重启应用生效" : msg;
+            if (msg.indexOf("重启") >= 0) {
+              updState = 4;
+              updBtn.textContent = "已更新 · 点击重启";
+            } else {
+              updState = 2;
+              updBtn.textContent = msg;
+            }
           }).catch(function () {
             updState = 0;
             updBtn.textContent = "更新失败，重试";
