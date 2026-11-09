@@ -119,10 +119,23 @@ type slotMan struct {
 type slotSession struct {
 	slot      int
 	device    string
+	orca      int
+	health    int
+	since     time.Time
 	sess      *smux.Session
 	conn      net.Conn
 	listeners []net.Listener
 	once      sync.Once
+}
+
+// DeviceInfo 服务端一个已连接设备（供客户端展示）。
+type DeviceInfo struct {
+	Device string `json:"device"`
+	Slot   int    `json:"slot"`
+	Orca   int    `json:"orca"`
+	Health int    `json:"health"`
+	Since  string `json:"since"`
+	Self   bool   `json:"self"`
 }
 
 func (s *slotSession) shutdown() {
@@ -211,6 +224,24 @@ func (m *slotMan) free(k int) {
 	m.mu.Unlock()
 }
 
+// snapshot 当前会话清单（设备查询）。
+func (m *slotMan) snapshot(self string) []DeviceInfo {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]DeviceInfo, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		out = append(out, DeviceInfo{
+			Device: s.device,
+			Slot:   s.slot,
+			Orca:   s.orca,
+			Health: s.health,
+			Since:  s.since.Format(time.RFC3339),
+			Self:   self != "" && s.device == self,
+		})
+	}
+	return out
+}
+
 // reap 对账回收：清掉 smux 已关闭（控制连接已死）的僵尸会话。
 func (m *slotMan) reap() {
 	m.mu.Lock()
@@ -237,6 +268,7 @@ type nativeEngine struct {
 	stopped bool
 	ports   map[string]int // 服务端分配的实际公开端口
 	hint    map[string]int // URL 参考值（兼容旧服务端）
+	sess    *smux.Session  // 活跃控制会话（设备查询用）
 }
 
 // portHint 返回 URL 参考端口。
@@ -445,12 +477,33 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	}
 	n.set(Connected, "", "")
 
-	ss = &slotSession{slot: slot, device: hs.Device, sess: sess, conn: conn}
+	ss = &slotSession{slot: slot, device: hs.Device, orca: assigned[ServiceOrca],
+		health: assigned[ServiceHealth], since: time.Now(), sess: sess, conn: conn}
 	defer sm.release(ss)
 	for _, l := range listeners {
 		ss.listeners = append(ss.listeners, l)
 	}
 	sm.attach(slot, ss)
+
+	// 客户端查询流：@devices → 服务端设备清单（v1.0.21）
+	go func() {
+		for {
+			stm, err := sess.AcceptStream()
+			if err != nil {
+				return
+			}
+			go func(stm *smux.Stream) {
+				defer stm.Close()
+				_ = stm.SetDeadline(time.Now().Add(5 * time.Second))
+				req, err := readFrame(stm)
+				if err != nil || string(req) != "@devices" {
+					return
+				}
+				b, _ := json.Marshal(sm.snapshot(hs.Device))
+				_ = writeFrame(stm, b)
+			}(stm)
+		}
+	}()
 
 	var wg sync.WaitGroup
 	for name, l := range listeners {
@@ -564,6 +617,16 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return err
 	}
+	n.mu.Lock()
+	n.sess = sess
+	n.mu.Unlock()
+	defer func() {
+		n.mu.Lock()
+		if n.sess == sess {
+			n.sess = nil
+		}
+		n.mu.Unlock()
+	}()
 	defer sess.Close()
 	n.set(Connected, "", "")
 
@@ -673,4 +736,32 @@ func deviceID(cfg Config) string {
 	id := hex.EncodeToString(buf[:])
 	_ = os.WriteFile(p, []byte(id), 0o600)
 	return id
+}
+
+// Devices 查询服务端已连接设备（经控制连接 @devices 流）。
+func (n *nativeEngine) Devices() ([]DeviceInfo, error) {
+	n.mu.Lock()
+	sess := n.sess
+	n.mu.Unlock()
+	if sess == nil {
+		return nil, fmt.Errorf("未连接")
+	}
+	stm, err := sess.OpenStream()
+	if err != nil {
+		return nil, err
+	}
+	defer stm.Close()
+	_ = stm.SetDeadline(time.Now().Add(5 * time.Second))
+	if err := writeFrame(stm, []byte("@devices")); err != nil {
+		return nil, err
+	}
+	resp, err := readFrame(stm)
+	if err != nil {
+		return nil, err
+	}
+	var list []DeviceInfo
+	if err := json.Unmarshal(resp, &list); err != nil {
+		return nil, err
+	}
+	return list, nil
 }

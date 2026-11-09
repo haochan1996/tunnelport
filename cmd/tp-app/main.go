@@ -290,6 +290,23 @@ func (App) Copy(text string) error {
 // Autostart 返回开机自启状态。
 func (App) Autostart() (bool, error) { return autoStartEnabled(), nil }
 
+// Devices 服务端已连接设备清单（设置/状态屏展示）。
+func (App) Devices() ([]engine.DeviceInfo, error) {
+	st.mu.Lock()
+	eng := st.eng
+	st.mu.Unlock()
+	if eng == nil {
+		return nil, fmt.Errorf("未连接")
+	}
+	dl, ok := eng.(interface {
+		Devices() ([]engine.DeviceInfo, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("当前引擎不支持设备查询")
+	}
+	return dl.Devices()
+}
+
 // SetLocalMap 设置本地映射（重连后生效）。
 func (App) SetLocalMap(addr string) error {
 	st.mu.Lock()

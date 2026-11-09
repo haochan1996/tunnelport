@@ -553,6 +553,37 @@
     }
   }
 
+  // 服务端设备清单（v1.0.21）
+  function paintDevices(list) {
+    var host = q("#devlist");
+    if (!host) return;
+    if (!list || !list.length) {
+      host.innerHTML = "";
+      return;
+    }
+    list.sort(function (a, b) { return a.slot - b.slot; });
+    host.innerHTML = "";
+    list.forEach(function (d) {
+      var row = document.createElement("div");
+      row.className = "lrow";
+      var mins = d.since ? Math.max(0, Math.round((Date.now() - Date.parse(d.since)) / 60000)) : -1;
+      var k = document.createElement("span");
+      k.className = "lrow__key";
+      k.textContent = d.self ? "本机" : "设备 " + String(d.slot + 1);
+      var v = document.createElement("span");
+      v.className = "lrow__val";
+      v.textContent = "ID " + String(d.device || "—").slice(0, 8) + " · 入口端口 " + d.orca;
+      var st2 = document.createElement("span");
+      st2.className = "lrow__state lrow__state--ok";
+      st2.textContent = "在线";
+      var m = document.createElement("span");
+      m.className = "lrow__meta";
+      m.textContent = mins >= 0 ? mins + " 分钟" : "—";
+      row.appendChild(k); row.appendChild(v); row.appendChild(st2); row.appendChild(m);
+      host.appendChild(row);
+    });
+  }
+
   // 状态屏「链路台账」（.lrow）接真实五段数据
   function paintLedger(rows) {
     var sec = q('section[aria-label="链路台账"]');
@@ -576,6 +607,7 @@
   function tick() {
     tickN++;
     call("Status").then(function (d) { paintStatus(d); syncPause(d); }).catch(function () {});
+    if (tickN % 3 === 1) call("Devices").then(paintDevices).catch(function () {});
     // 五段数据：状态屏台账 + 诊断屏同源（每 3 轮 = 9s 刷一次，探测不至过频）
     if (tickN % 3 === 1 || location.hash.indexOf("doctor") >= 0) {
       call("Doctor").then(function (d) { paintLedger(d.rows); paintDoctor(d); }).catch(function () {});
