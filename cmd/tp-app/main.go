@@ -682,7 +682,14 @@ func main() {
 			ToolTip: "tunnelport — Orca 稳定入口", Menu: menu,
 		}); err == nil {
 			// 左击/双击图标 = 打开主程序；右键 = 弹出菜单（打开主程序 / 退出）
-			tray.OnClick(func() { win.Show() })
+			tray.OnClick(func() {
+				// 单击托盘切换：显示 ↔ 最小化（v1.0.11）
+				if win.IsVisible() && !win.IsMinimized() {
+					win.Minimize()
+				} else {
+					win.Show()
+				}
+			})
 			tray.OnRightClick(func() { tray.PopUpMenu() })
 			go func() {
 				for range time.Tick(3 * time.Second) {
