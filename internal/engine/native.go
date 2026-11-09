@@ -503,7 +503,7 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 		return
 	}
 	if sm.isBanned(hs.Device) {
-		_ = writeFrame(conn, []byte(`{"err":"设备已移除，请重新配对"}`))
+		_ = writeFrame(conn, []byte(`{"err":"设备已移除。点「更换配对码」重新接入（配对码不用换）"}`))
 		return
 	}
 	nlog("serve: 客户端 %s 已鉴权，注册服务 %v", conn.RemoteAddr(), hs.Services)

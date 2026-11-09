@@ -10,7 +10,7 @@
 # 本脚本安装的是命令行工具 tp（服务器/无人值守场景）。
 $ErrorActionPreference = "Stop"
 
-$version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v1.0.28" }
+$version = if ($env:TP_VERSION) { $env:TP_VERSION } else { "v1.0.29" }
 $role = if ($env:TP_ROLE) { $env:TP_ROLE } else { "serve" }
 $url = $env:TP_URL
 if ($role -eq "connect" -and -not $url) {
