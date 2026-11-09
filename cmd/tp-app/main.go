@@ -706,7 +706,7 @@ func main() {
 	isPrimary, signalShow, showRequested := acquire()
 	// 重启拉起的实例：旧进程可能仍在拆解 webview，轮询等它释放单实例锁（最多 10s）
 	if !isPrimary && hasArg("--restart") {
-		for i := 0; i < 20 && !isPrimary; i++ {
+		for i := 0; i < 40 && !isPrimary; i++ { // 最多等 20s
 			time.Sleep(500 * time.Millisecond)
 			isPrimary, signalShow, showRequested = acquire()
 		}

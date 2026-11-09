@@ -286,27 +286,26 @@ func (App) DoUpdate() (string, error) {
 	return runUpdate()
 }
 
-// Restart 重启应用（更新完成后由界面调用）：延迟拉新进程，待本进程退出释放单实例锁。
+// Restart 重启应用 —— 稳定版（v1.0.31）：
+// 直接拉起新进程（不经 PowerShell/cmd 中间人，消灭转义/延时/临时脚本三个故障源），
+// 新进程带 --restart 轮询等单实例锁；旧进程优雅退出 + 强制退出兜底，保证锁必释放。
 func (App) Restart() error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	// --restart 让新实例轮询等待单实例锁（本进程退出拆解 webview 需 1~3s，
-	// 短延时拉起会撞锁后静默退出——v1.0.6 修复"点击重启没起来"）
-	if runtime.GOOS == "windows" {
-		q := strings.ReplaceAll(exe, "'", "''")
-		err = startPS("Start-Sleep -Seconds 3; Start-Process -LiteralPath '" + q + "' -ArgumentList '--restart'")
-	} else {
-		err = hiddenCmd("sh", "-c", `sleep 3; "`+exe+`" --restart >/dev/null 2>&1 &`).Start()
-	}
-	if err != nil {
+	cmd := hiddenCmd(exe, "--restart")
+	cmd.Dir = filepath.Dir(exe)
+	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("拉起新进程失败：%w（可手动重开程序）", err)
 	}
 	go func() {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 		quitting = true
 		mygo.App.Quit()
+		// 兜底：webview 拆解偶发卡死导致进程不退 → 强制退出，互斥体必释放
+		time.Sleep(2 * time.Second)
+		os.Exit(0)
 	}()
 	return nil
 }
