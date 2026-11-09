@@ -20,3 +20,7 @@ Thumbs.db
 *.swp
 internal/engine/embedded/rathole
 internal/engine/embedded/rathole.exe
+
+# 测试工具依赖（jsdom 等）
+node_modules/
+package-lock.json
