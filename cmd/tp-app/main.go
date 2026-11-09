@@ -325,24 +325,6 @@ func (App) Kick(slot int) (string, error) {
 	return "已移除", nil
 }
 
-// Unban 恢复被移除的设备。
-func (App) Unban(device string) (string, error) {
-	st.mu.Lock()
-	eng := st.eng
-	st.mu.Unlock()
-	if eng == nil {
-		return "", fmt.Errorf("未连接")
-	}
-	ub, ok := eng.(interface{ Unban(string) error })
-	if !ok {
-		return "", fmt.Errorf("当前引擎不支持")
-	}
-	if err := ub.Unban(device); err != nil {
-		return "", err
-	}
-	return "已恢复", nil
-}
-
 // SetLocalMap 设置本地映射（重连后生效）。
 func (App) SetLocalMap(addr string) error {
 	st.mu.Lock()

@@ -503,7 +503,7 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 		return
 	}
 	if sm.isBanned(hs.Device) {
-		_ = writeFrame(conn, []byte(`{"err":"设备已被移除，请联系管理员恢复或重新配对"}`))
+		_ = writeFrame(conn, []byte(`{"err":"设备已移除，请重新配对"}`))
 		return
 	}
 	nlog("serve: 客户端 %s 已鉴权，注册服务 %v", conn.RemoteAddr(), hs.Services)
@@ -698,6 +698,9 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 	}
 	if strings.HasPrefix(string(resp), "{") && strings.Contains(string(resp), "err") {
 		nlog("client: 被拒（%s）", resp)
+		if strings.Contains(string(resp), "已移除") {
+			resetDeviceID(cfg) // 作废设备身份：重新配对即以新身份回归
+		}
 		return fmt.Errorf("服务端拒绝：%s", resp)
 	}
 	assigned := map[string]int{}
@@ -823,6 +826,15 @@ func saveSlotHint(cfg Config, k int) {
 		return
 	}
 	_ = os.WriteFile(filepath.Join(filepath.Dir(cfg.CertRoot), "slot"), []byte(strconv.Itoa(k)), 0o600)
+}
+
+// resetDeviceID 作废设备身份（被移除后重新配对用）。
+func resetDeviceID(cfg Config) {
+	if cfg.CertRoot == "" {
+		return
+	}
+	_ = os.Remove(filepath.Join(filepath.Dir(cfg.CertRoot), "device"))
+	nlog("client: 设备身份已作废，请重新配对")
 }
 
 // deviceID 本机稳定设备身份（首次生成后持久复用）。
