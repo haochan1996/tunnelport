@@ -651,7 +651,7 @@ a:focus-visible,
   font-size: var(--fs-mono);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: left; /* v1.0.15：读数列左对齐（此前右贴边） */
 }
 
 /* settings rows: key | description | control */
