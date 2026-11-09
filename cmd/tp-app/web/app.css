@@ -360,6 +360,17 @@ pre {
   margin-right: auto;
 }
 
+/* 墨黑底上的幽灵按钮：浅字浅框（否则深字深底不可见） */
+.update-banner .btn--ghost {
+  color: var(--on-ink);
+  border: 1px solid var(--line-ink);
+  background: transparent;
+}
+
+.update-banner .btn--ghost:hover {
+  background: rgba(232, 235, 230, 0.12);
+}
+
 /* ======================================================== components ==== */
 
 /* ------------------------------------------------------------ buttons --- */
