@@ -316,6 +316,15 @@
       });
     }
 
+    // GitHub 仓库链接：webview 内拦截导航，交给系统浏览器（v1.0.8）
+    var repoLink = q("#repo-link");
+    if (repoLink) {
+      repoLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        call("OpenURL", "https://github.com/haochan1996/tunnelport").catch(function () {});
+      });
+    }
+
     // 配对页「配对码丢了？」：复制找回命令（v0.1.3 修死按钮）
     var lostBtn = q(".linkish");
     if (lostBtn && lostBtn.textContent.indexOf("show-pairing") >= 0) {
