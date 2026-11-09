@@ -579,6 +579,15 @@ func boolWord(b bool) string {
 
 // ---------- 入口 ----------
 
+func hasArg(flag string) bool {
+	for _, a := range os.Args[1:] {
+		if a == flag {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	// 默认开机自启：首次运行自动注册；用户在设置里关过（decided 标记）则不再自动开
 	if home, err := os.UserHomeDir(); err == nil {
@@ -629,6 +638,13 @@ func main() {
 
 	// 单实例：二次启动只唤起已有窗口（托盘常驻时双击图标 = 打开主界面）
 	isPrimary, signalShow, showRequested := acquire()
+	// 重启拉起的实例：旧进程可能仍在拆解 webview，轮询等它释放单实例锁（最多 10s）
+	if !isPrimary && hasArg("--restart") {
+		for i := 0; i < 20 && !isPrimary; i++ {
+			time.Sleep(500 * time.Millisecond)
+			isPrimary, signalShow, showRequested = acquire()
+		}
+	}
 	if !isPrimary {
 		signalShow()
 		return

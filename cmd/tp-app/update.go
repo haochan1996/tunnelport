@@ -207,11 +207,15 @@ func (App) Restart() error {
 	if err != nil {
 		return err
 	}
+	// --restart 让新实例轮询等待单实例锁（本进程退出拆解 webview 需 1~3s，
+	// 短延时拉起会撞锁后静默退出——v1.0.6 修复"点击重启没起来"）
 	if runtime.GOOS == "windows" {
-		// ping 作 2s 延时（start 等旧进程退出后再拉起，避免单实例锁误判）
-		_ = hiddenCmd("cmd", "/c", `ping -n 3 127.0.0.1 >nul & start "" "`+exe+`"`).Start()
+		err = hiddenCmd("cmd", "/c", `ping -n 5 127.0.0.1 >nul & start "" "`+exe+`" --restart`).Start()
 	} else {
-		_ = hiddenCmd("sh", "-c", `sleep 2; "`+exe+`" >/dev/null 2>&1 &`).Start()
+		err = hiddenCmd("sh", "-c", `sleep 3; "`+exe+`" --restart >/dev/null 2>&1 &`).Start()
+	}
+	if err != nil {
+		return fmt.Errorf("拉起新进程失败：%w（可手动重开程序）", err)
 	}
 	go func() {
 		time.Sleep(500 * time.Millisecond)
