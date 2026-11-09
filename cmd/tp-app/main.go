@@ -307,6 +307,24 @@ func (App) Devices() ([]engine.DeviceInfo, error) {
 	return dl.Devices()
 }
 
+// Kick 移除服务端某设备（断开并清理其会话）。
+func (App) Kick(slot int) (string, error) {
+	st.mu.Lock()
+	eng := st.eng
+	st.mu.Unlock()
+	if eng == nil {
+		return "", fmt.Errorf("未连接")
+	}
+	k, ok := eng.(interface{ Kick(int) error })
+	if !ok {
+		return "", fmt.Errorf("当前引擎不支持")
+	}
+	if err := k.Kick(slot); err != nil {
+		return "", err
+	}
+	return "已移除", nil
+}
+
 // SetLocalMap 设置本地映射（重连后生效）。
 func (App) SetLocalMap(addr string) error {
 	st.mu.Lock()

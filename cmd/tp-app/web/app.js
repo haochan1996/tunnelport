@@ -569,7 +569,7 @@
       var mins = d.since ? Math.max(0, Math.round((Date.now() - Date.parse(d.since)) / 60000)) : -1;
       var k = document.createElement("span");
       k.className = "lrow__key";
-      k.textContent = d.self ? "本机" : "设备 " + String(d.slot + 1);
+      k.textContent = d.name ? (d.name + (d.self ? "（本机）" : "")) : (d.self ? "本机" : "设备 " + String(d.slot + 1));
       var v = document.createElement("span");
       v.className = "lrow__val";
       v.textContent = "ID " + String(d.device || "—").slice(0, 8) + " · 入口端口 " + d.orca;
@@ -579,6 +579,22 @@
       var m = document.createElement("span");
       m.className = "lrow__meta";
       m.textContent = mins >= 0 ? mins + " 分钟" : "—";
+      if (!d.self) {
+        var kick = document.createElement("button");
+        kick.className = "btn btn--ghost";
+        kick.textContent = "移除";
+        kick.style.cssText = "font-size: var(--fs-small); padding: 2px var(--s3); margin-left: var(--s3)";
+        kick.addEventListener("click", function () {
+          kick.textContent = "移除中…";
+          call("Kick", d.slot).then(function () {
+            call("Devices").then(paintDevices).catch(function () {});
+          }).catch(function () {
+            kick.textContent = "失败";
+            setTimeout(function () { kick.textContent = "移除"; }, 2000);
+          });
+        });
+        m.appendChild(kick);
+      }
       row.appendChild(k); row.appendChild(v); row.appendChild(st2); row.appendChild(m);
       host.appendChild(row);
     });

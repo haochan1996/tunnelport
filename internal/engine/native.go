@@ -48,6 +48,7 @@ type nativeHandshake struct {
 	Services []string `json:"s"`
 	Slot     *int     `json:"slot"` // 偏好端口槽（粘性重连）；nil=无偏好
 	Device   string   `json:"d"`    // 设备身份（同设备识别，端口恒定）
+	Name     string   `json:"n"`    // 电脑名称（设备清单展示）
 }
 
 // ---------- 帧 ----------
@@ -119,6 +120,7 @@ type slotMan struct {
 type slotSession struct {
 	slot      int
 	device    string
+	name      string
 	orca      int
 	health    int
 	since     time.Time
@@ -130,6 +132,7 @@ type slotSession struct {
 
 // DeviceInfo 服务端一个已连接设备（供客户端展示）。
 type DeviceInfo struct {
+	Name   string `json:"name"`
 	Device string `json:"device"`
 	Slot   int    `json:"slot"`
 	Orca   int    `json:"orca"`
@@ -231,6 +234,7 @@ func (m *slotMan) snapshot(self string) []DeviceInfo {
 	out := make([]DeviceInfo, 0, len(m.sessions))
 	for _, s := range m.sessions {
 		out = append(out, DeviceInfo{
+			Name:   s.name,
 			Device: s.device,
 			Slot:   s.slot,
 			Orca:   s.orca,
@@ -240,6 +244,22 @@ func (m *slotMan) snapshot(self string) []DeviceInfo {
 		})
 	}
 	return out
+}
+
+// kick 踢下线指定槽位会话（断开并清理）。
+func (m *slotMan) kick(slot int) bool {
+	m.mu.Lock()
+	s, ok := m.sessions[slot]
+	if ok {
+		delete(m.sessions, slot)
+		m.used[slot] = false
+	}
+	m.mu.Unlock()
+	if ok {
+		nlog("serve: 移除设备（槽 #%d）", slot)
+		s.shutdown()
+	}
+	return ok
 }
 
 // reap 对账回收：清掉 smux 已关闭（控制连接已死）的僵尸会话。
@@ -477,7 +497,7 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	}
 	n.set(Connected, "", "")
 
-	ss = &slotSession{slot: slot, device: hs.Device, orca: assigned[ServiceOrca],
+	ss = &slotSession{slot: slot, device: hs.Device, name: hs.Name, orca: assigned[ServiceOrca],
 		health: assigned[ServiceHealth], since: time.Now(), sess: sess, conn: conn}
 	defer sm.release(ss)
 	for _, l := range listeners {
@@ -496,11 +516,22 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 				defer stm.Close()
 				_ = stm.SetDeadline(time.Now().Add(5 * time.Second))
 				req, err := readFrame(stm)
-				if err != nil || string(req) != "@devices" {
+				if err != nil {
 					return
 				}
-				b, _ := json.Marshal(sm.snapshot(hs.Device))
-				_ = writeFrame(stm, b)
+				body := string(req)
+				switch {
+				case body == "@devices":
+					b, _ := json.Marshal(sm.snapshot(hs.Device))
+					_ = writeFrame(stm, b)
+				case strings.HasPrefix(body, "@kick:"):
+					slot, _ := strconv.Atoi(strings.TrimPrefix(body, "@kick:"))
+					if sm.kick(slot) {
+						_ = writeFrame(stm, []byte("OK"))
+					} else {
+						_ = writeFrame(stm, []byte("ERR"))
+					}
+				}
 			}(stm)
 		}
 	}()
@@ -580,8 +611,9 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 	if v, ok := readSlotHint(cfg); ok {
 		slotPref = &v
 	}
+	hostName, _ := os.Hostname() // computer name for device list
 	hs := nativeHandshake{Token: cfg.Token, Version: nativeProtoVersion, Services: names,
-		Slot: slotPref, Device: deviceID(cfg)}
+		Slot: slotPref, Device: deviceID(cfg), Name: hostName}
 	b, _ := json.Marshal(hs)
 	if err := writeFrame(conn, b); err != nil {
 		return err
@@ -764,4 +796,31 @@ func (n *nativeEngine) Devices() ([]DeviceInfo, error) {
 		return nil, err
 	}
 	return list, nil
+}
+
+// Kick 踢下线服务端指定槽位的设备（设备清单"移除"）。
+func (n *nativeEngine) Kick(slot int) error {
+	n.mu.Lock()
+	sess := n.sess
+	n.mu.Unlock()
+	if sess == nil {
+		return fmt.Errorf("未连接")
+	}
+	stm, err := sess.OpenStream()
+	if err != nil {
+		return err
+	}
+	defer stm.Close()
+	_ = stm.SetDeadline(time.Now().Add(5 * time.Second))
+	if err := writeFrame(stm, []byte("@kick:"+strconv.Itoa(slot))); err != nil {
+		return err
+	}
+	resp, err := readFrame(stm)
+	if err != nil {
+		return err
+	}
+	if string(resp) != "OK" {
+		return fmt.Errorf("移除失败（设备可能已离线）")
+	}
+	return nil
 }
