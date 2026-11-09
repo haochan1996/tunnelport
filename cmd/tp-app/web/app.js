@@ -333,6 +333,50 @@
       backBtn.addEventListener("click", function () { location.href = "/"; });
     }
 
+    // 自动检查更新（v1.0.1）：启动 20s 后静默首查，每 6h 复查；有新版弹横幅
+    var DISMISS_KEY = "tp-update-dismiss-";
+    function showUpdateBanner(u) {
+      if (q("#update-banner")) return;
+      var bar = document.createElement("div");
+      bar.id = "update-banner";
+      bar.className = "update-banner";
+      var msg = document.createElement("span");
+      msg.textContent = "发现新版本 " + u.latest + "（当前 " + u.current + "）";
+      var go = document.createElement("button");
+      go.className = "btn btn--primary";
+      go.textContent = "更新并重启";
+      var later = document.createElement("button");
+      later.className = "btn btn--ghost";
+      later.textContent = "稍后";
+      bar.appendChild(msg); bar.appendChild(go); bar.appendChild(later);
+      var host = q(".titlebar") || q(".app") || document.body;
+      host.parentNode.insertBefore(bar, host.nextSibling);
+      go.addEventListener("click", function () {
+        go.textContent = "更新中…";
+        call("DoUpdate").then(function (m) {
+          go.textContent = m || "已更新，重启生效";
+          later.remove();
+        }).catch(function (e) {
+          go.textContent = String((e && e.message) || e);
+          setTimeout(function () { go.textContent = "更新并重启"; }, 3000);
+        });
+      });
+      later.addEventListener("click", function () {
+        try { localStorage.setItem(DISMISS_KEY + u.latest, "1"); } catch (e) {}
+        bar.remove();
+      });
+    }
+    function autoCheckUpdate() {
+      call("CheckUpdate").then(function (u) {
+        if (!u || !u.hasUpdate) return;
+        var dismissed = false;
+        try { dismissed = localStorage.getItem(DISMISS_KEY + u.latest) === "1"; } catch (e) {}
+        if (!dismissed) showUpdateBanner(u);
+      }).catch(function () {}); // 网络失败静默，不打扰
+    }
+    setTimeout(autoCheckUpdate, 20 * 1000);
+    setInterval(autoCheckUpdate, 6 * 60 * 60 * 1000);
+
     // 更换配对码：回配对页重新粘贴链接（v1.3 恢复路径）
     document.addEventListener("click", function (e) {
       var t = e.target.closest('[data-act="relink"]');

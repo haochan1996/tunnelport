@@ -344,6 +344,22 @@ pre {
   padding: var(--s5) var(--s7) var(--s5);
 }
 
+/* 更新横幅（自动检查更新，v1.0.1） -------------------------------------- */
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s5);
+  background: var(--ink-bg);
+  color: var(--on-ink);
+  font-size: var(--fs-small);
+}
+
+.update-banner span {
+  margin-right: auto;
+}
+
 /* ======================================================== components ==== */
 
 /* ------------------------------------------------------------ buttons --- */
