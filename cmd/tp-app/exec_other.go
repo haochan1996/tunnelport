@@ -12,6 +12,11 @@ func hiddenCmd(name string, args ...string) *exec.Cmd {
 	return exec.Command(name, args...)
 }
 
+// writePS 非 Windows 平台无 PowerShell。
+func writePS(script string) (string, error) {
+	return "", fmt.Errorf("仅 Windows 支持")
+}
+
 // runPS 非 Windows 平台无 PowerShell。
 func runPS(script string) error {
 	return fmt.Errorf("仅 Windows 支持")
