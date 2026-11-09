@@ -189,7 +189,7 @@ func runServe(flagPort int, flagBind, flagToken string, flagPublic int, flagHeal
 	// 持久化状态（不含明文 token，FR-3.4）。
 	_ = config.SaveState(&config.State{
 		Role:    "serve",
-		Entry:   address.EntryURL(entryHost, flagPublic),
+		Entry:   address.EntryURL(entryHost, publicPort), // 有效端口（port-base 顺延后），非 CLI 默认值
 		Control: address.EntryURL(entryHost, ctrl),
 		TokenFP: config.Fingerprint(token),
 		Version: version,
