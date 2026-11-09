@@ -349,6 +349,30 @@
       }
     }).catch(function () {});
 
+    // 带进度的更新流（v1.0.12）：StartUpdate 后台下载，轮询 UpdateProgress 刷按钮
+    function runUpdateWithProgress(btn, onDone, onFail) {
+      call("StartUpdate").then(function () {
+        var timer = setInterval(function () {
+          call("UpdateProgress").then(function (p) {
+            if (!p) return;
+            if (p.stage === "downloading") {
+              btn.textContent = p.percent >= 0
+                ? ("更新中 " + p.percent + "%")
+                : ("更新中… " + (p.message || ""));
+            } else if (p.stage === "installing") {
+              btn.textContent = "安装中…";
+            } else if (p.stage === "done") {
+              clearInterval(timer);
+              onDone(p.message || "");
+            } else if (p.stage === "error") {
+              clearInterval(timer);
+              onFail(p.message || "更新失败");
+            }
+          }).catch(function () {});
+        }, 400);
+      }).catch(function (e) { onFail(String((e && e.message) || e)); });
+    }
+
     // 自动检查更新（v1.0.1）：启动 20s 后静默首查，每 6h 复查；有新版弹横幅
     var DISMISS_KEY = "tp-update-dismiss-";
     function showUpdateBanner(u) {
@@ -372,13 +396,12 @@
           call("Restart").catch(function () {});
           return;
         }
-        go.textContent = "更新中…";
-        call("DoUpdate").then(function () {
+        runUpdateWithProgress(go, function () {
           go.setAttribute("data-done", "1");
           go.textContent = "已更新 · 点击重启";
           later.remove();
-        }).catch(function (e) {
-          go.textContent = String((e && e.message) || e);
+        }, function (err) {
+          go.textContent = err;
           setTimeout(function () { go.textContent = "更新并重启"; }, 3000);
         });
       });
@@ -452,8 +475,7 @@
           call("Restart").catch(function () {});
         } else if (updState === 1) {
           updState = 3;
-          updBtn.textContent = "更新中…";
-          call("DoUpdate").then(function (msg) {
+          runUpdateWithProgress(updBtn, function (msg) {
             if (msg.indexOf("重启") >= 0) {
               updState = 4;
               updBtn.textContent = "已更新 · 点击重启";
@@ -461,7 +483,7 @@
               updState = 2;
               updBtn.textContent = msg;
             }
-          }).catch(function () {
+          }, function () {
             updState = 0;
             updBtn.textContent = "更新失败，重试";
           });

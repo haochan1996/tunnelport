@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -139,8 +140,76 @@ func (App) CheckUpdate() (UpdateDTO, error) {
 	return out, nil
 }
 
-// DoUpdate 下载最新版并原位替换本程序；返回给用户的提示。
-func (App) DoUpdate() (string, error) {
+// ---------- 更新进度（v1.0.12）：后台执行 + 轮询 ----------
+
+type updateState struct {
+	mu      sync.Mutex
+	running bool
+	stage   string // downloading / installing / done / error
+	percent int    // -1 = 总长未知
+	message string // 速率文本 / 错误信息 / 完成提示
+}
+
+var upd = updateState{percent: -1}
+
+// progressReader 边下边上报（每 ~250ms）。
+type progressReader struct {
+	r     io.Reader
+	total int64
+	read  int64
+	last  time.Time
+	lastN int64
+	fn    func(read, total int64, speed string)
+}
+
+func (pr *progressReader) Read(b []byte) (int, error) {
+	n, err := pr.r.Read(b)
+	pr.read += int64(n)
+	if now := time.Since(pr.last); now > 250*time.Millisecond {
+		speed := float64(pr.read-pr.lastN) / now.Seconds()
+		pr.last, pr.lastN = time.Now(), pr.read
+		pr.fn(pr.read, pr.total, fmt.Sprintf("%.1f MB/s", speed/1e6))
+	}
+	return n, err
+}
+
+// StartUpdate 启动后台更新（幂等：进行中直接返回）。
+func (App) StartUpdate() (string, error) {
+	upd.mu.Lock()
+	if upd.running {
+		upd.mu.Unlock()
+		return "", nil
+	}
+	upd.running, upd.stage, upd.percent, upd.message = true, "downloading", -1, ""
+	upd.mu.Unlock()
+	go func() {
+		msg, err := runUpdate()
+		upd.mu.Lock()
+		defer upd.mu.Unlock()
+		upd.running = false
+		if err != nil {
+			upd.stage, upd.message = "error", err.Error()
+			return
+		}
+		upd.stage, upd.message = "done", msg
+	}()
+	return "", nil
+}
+
+// UpdateProgress 查询更新进度（界面轮询）。
+func (App) UpdateProgress() (map[string]any, error) {
+	upd.mu.Lock()
+	defer upd.mu.Unlock()
+	return map[string]any{
+		"running": upd.running,
+		"stage":   upd.stage,
+		"percent": upd.percent,
+		"message": upd.message,
+	}, nil
+}
+
+// runUpdate：检查 → 下载（带进度）→ 原位替换。
+func runUpdate() (string, error) {
 	u, err := (&App{}).CheckUpdate()
 	if err != nil {
 		return "", err
@@ -165,13 +234,21 @@ func (App) DoUpdate() (string, error) {
 	}
 	resp, err := tryGet(u.AssetURL)
 	if err != nil {
-		// 国内网络回退 gh-proxy 镜像
 		resp, err = tryGet("https://gh-proxy.com/" + u.AssetURL)
 		if err != nil {
 			return "", fmt.Errorf("下载失败：%v。可手动下载：%s", err, u.ReleaseURL)
 		}
 	}
 	defer resp.Body.Close()
+	pr := &progressReader{r: resp.Body, total: resp.ContentLength, last: time.Now(),
+		fn: func(read, total int64, speed string) {
+			upd.mu.Lock()
+			if total > 0 {
+				upd.percent = int(read * 100 / total)
+			}
+			upd.message = speed
+			upd.mu.Unlock()
+		}}
 	exe, err := os.Executable()
 	if err != nil {
 		return "", err
@@ -181,12 +258,15 @@ func (App) DoUpdate() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("写入失败：%w", err)
 	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
+	if _, err := io.Copy(f, pr); err != nil {
 		f.Close()
 		_ = os.Remove(tmp)
 		return "", fmt.Errorf("下载中断：%w", err)
 	}
 	f.Close()
+	upd.mu.Lock()
+	upd.stage = "installing"
+	upd.mu.Unlock()
 	old := exe + ".old"
 	_ = os.Remove(old)
 	if err := os.Rename(exe, old); err != nil {
@@ -194,11 +274,16 @@ func (App) DoUpdate() (string, error) {
 		return "", fmt.Errorf("替换失败（%v）。可手动下载：%s", err, u.ReleaseURL)
 	}
 	if err := os.Rename(tmp, exe); err != nil {
-		_ = os.Rename(old, exe) // 回滚
+		_ = os.Rename(old, exe)
 		return "", fmt.Errorf("替换失败（%v）", err)
 	}
 	_ = os.Remove(old)
 	return "已更新到 " + u.Latest + "，重启应用生效", nil
+}
+
+// DoUpdate 同步版更新（界面已改用 StartUpdate/UpdateProgress，保留兼容）。
+func (App) DoUpdate() (string, error) {
+	return runUpdate()
 }
 
 // Restart 重启应用（更新完成后由界面调用）：延迟拉新进程，待本进程退出释放单实例锁。
