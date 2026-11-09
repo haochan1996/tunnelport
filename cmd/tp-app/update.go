@@ -294,7 +294,9 @@ func (App) Restart() error {
 	if exe == "" {
 		exe, _ = os.Executable()
 	}
-	cmd := hiddenCmd(exe, "--restart")
+	// 不能用 hiddenCmd：其 HideWindow/STARTF_SHOWWINDOW 会把新进程主窗口也置隐藏
+	// （进程活着、窗口不显示——"更新后没打开主程序"的根因，v1.0.35）
+	cmd := exec.Command(exe, "--restart")
 	cmd.Dir = filepath.Dir(exe)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("拉起新进程失败：%w（可手动重开程序）", err)
