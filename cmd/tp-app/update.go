@@ -40,58 +40,75 @@ type ghRelease struct {
 	} `json:"assets"`
 }
 
-// latestTag 取最新非 draft 版本。三级策略：
-//  1. /releases/latest 重定向（浏览器口径，不受 API 配额限制）
-//  2. releases 列表页解析（覆盖 prerelease——"latest" 语义不含预发布）
-//  3. GitHub API 回退（匿名配额 60 次/时，共享出口 IP 常耗尽）
+// latestTag 取最新非 draft 版本。多源收集、取最大版本号——
+// 单一来源可能被代理缓存或发布后索引延迟返回旧值（v1.0.5 加固）。
 func latestTag() (tag, pageURL string, rel *ghRelease, err error) {
+	var cands []string
 	noRedirect := &http.Client{
 		Timeout: 15 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
+	// 1. /releases/latest 重定向（浏览器口径）
 	if resp, e := noRedirect.Get("https://github.com/haochan1996/tunnelport/releases/latest"); e == nil {
-		defer resp.Body.Close()
 		loc := resp.Header.Get("Location")
+		resp.Body.Close()
 		if k := strings.LastIndex(loc, "/tag/"); k >= 0 {
 			if t := loc[k+len("/tag/"):]; t != "" {
-				return t, loc, nil, nil
+				cands = append(cands, t)
+				pageURL = loc
 			}
 		}
 	}
+	// 2. releases 列表页：收集全部 tag 链接（多匹配取最大，不依赖顺序）
 	client := &http.Client{Timeout: 15 * time.Second}
 	if resp, e := client.Get("https://github.com/haochan1996/tunnelport/releases"); e == nil {
-		defer resp.Body.Close()
 		if resp.StatusCode == 200 {
 			b, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-			if m := regexp.MustCompile(`releases/tag/([0-9A-Za-z._-]+)`).FindSubmatch(b); m != nil {
-				t := string(m[1])
-				return t, "https://github.com/haochan1996/tunnelport/releases/tag/" + t, nil, nil
+			for _, m := range regexp.MustCompile(`releases/tag/([0-9A-Za-z._-]+)`).FindAllSubmatch(b, -1) {
+				cands = append(cands, string(m[1]))
+			}
+		}
+		resp.Body.Close()
+	}
+	// 3. API 回退（匿名配额有限）
+	var apiRel *ghRelease
+	if resp, e := client.Get("https://api.github.com/repos/haochan1996/tunnelport/releases?per_page=10"); e == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == 200 {
+			var rels []ghRelease
+			if json.NewDecoder(resp.Body).Decode(&rels) == nil {
+				for i := range rels {
+					if !rels[i].Draft {
+						cands = append(cands, rels[i].TagName)
+						if apiRel == nil {
+							apiRel = &rels[i]
+						}
+						break
+					}
+				}
 			}
 		}
 	}
-	resp, err := client.Get("https://api.github.com/repos/haochan1996/tunnelport/releases?per_page=10")
-	if err != nil {
-		return "", "", nil, fmt.Errorf("网络不可用：%w", err)
+	if len(cands) == 0 {
+		return "", "", nil, fmt.Errorf("网络不可用或 GitHub 暂不可达，稍后重试；也可手动更新：https://github.com/haochan1996/tunnelport/releases")
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 403 {
-		return "", "", nil, fmt.Errorf("GitHub 接口限流，稍后重试；或手动更新：https://github.com/haochan1996/tunnelport/releases")
-	}
-	if resp.StatusCode != 200 {
-		return "", "", nil, fmt.Errorf("GitHub 返回 %d，稍后重试", resp.StatusCode)
-	}
-	var rels []ghRelease
-	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
-		return "", "", nil, fmt.Errorf("解析失败：%w", err)
-	}
-	for i := range rels {
-		if !rels[i].Draft {
-			return rels[i].TagName, rels[i].HTMLURL, &rels[i], nil
+	// 取最大版本
+	best := cands[0]
+	for _, c := range cands[1:] {
+		if compareVersions(c, best) > 0 {
+			best = c
 		}
 	}
-	return "", "", nil, fmt.Errorf("暂无发布版本")
+	if pageURL == "" {
+		pageURL = "https://github.com/haochan1996/tunnelport/releases/tag/" + best
+	}
+	// 只有 API 候选就是最优解时才带资产清单（否则按命名约定构造直链）
+	if apiRel != nil && apiRel.TagName == best {
+		return best, pageURL, apiRel, nil
+	}
+	return best, pageURL, nil, nil
 }
 
 // CheckUpdate 对比 GitHub Releases 最新版。

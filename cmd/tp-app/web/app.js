@@ -432,7 +432,7 @@
               call("OpenURL", u.releaseUrl).catch(function () {});
             } else {
               updState = 2;
-              updBtn.textContent = "已是最新版";
+              updBtn.textContent = "已是最新版（" + u.latest + "）";
             }
           }).catch(function (e) {
             updState = 0;
