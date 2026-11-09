@@ -122,6 +122,8 @@ func (App) Status() (StatusDTO, error) {
 		Events: tailLogs(4),
 	}
 	switch {
+	case st.state == "已暂停":
+		d.Dot = "wait"
 	case st.state == "已连接":
 		d.Dot = "pass"
 		d.Meta = fmt.Sprintf("%s · 24h 内重连 %d 次 · 托盘运行中",
@@ -337,6 +339,7 @@ func (App) ResetPairing() error {
 func (App) Pause() error {
 	st.mu.Lock()
 	eng := st.eng
+	st.eng = nil // 监控循环据此退出（v1.0.13）
 	st.mu.Unlock()
 	if eng == nil {
 		return fmt.Errorf("隧道未在运行")
@@ -537,11 +540,17 @@ func startEngine(p tokenx.Pair) {
 
 	last := st.state
 	for range time.Tick(2 * time.Second) {
+		st.mu.Lock()
+		if st.eng != eng { // 已暂停/已被新引擎替换：退出监控（v1.0.13：此前永不退出且覆盖"已暂停"）
+			st.mu.Unlock()
+			return
+		}
+		st.mu.Unlock()
 		es := eng.Status()
 		st.mu.Lock()
 		switch es.State {
 		case engine.Connected:
-			if last != "已连接" {
+			if last == "重连中" { // 只有真·重连才计数（恢复/首次连接不算）
 				st.reconnects++
 			}
 			st.state, st.detail = "已连接", ""

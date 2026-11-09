@@ -1107,7 +1107,9 @@ a:focus-visible,
 }
 
 .status-hero .dot {
-  transform: translateY(-0.5em);
+  transform: translateY(-0.35em);
+  width: 14px;
+  height: 14px;
 }
 
 .grid-2 {
