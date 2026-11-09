@@ -581,9 +581,24 @@
       info.appendChild(badge);
       if (d.banned) {
         var note = document.createElement("span");
-        note.textContent = " · 该设备需重新配对";
+        note.textContent = " · 已移除，重新配对可回";
         note.style.color = "var(--ink-3)";
         info.appendChild(note);
+        var back = document.createElement("button");
+        back.className = "btn btn--ghost";
+        back.textContent = "恢复";
+        back.style.cssText = "font-size: var(--fs-small); padding: 2px var(--s3); margin-left: var(--s3)";
+        back.title = "恢复后该设备可直接重连（无需重新配对）";
+        back.addEventListener("click", function () {
+          back.textContent = "恢复中…";
+          call("Unban", d.device).then(function () {
+            call("Devices").then(paintDevices).catch(function () {});
+          }).catch(function () {
+            back.textContent = "失败";
+            setTimeout(function () { back.textContent = "恢复"; }, 2000);
+          });
+        });
+        info.appendChild(back);
       } else if (!d.self) {
         var kick = document.createElement("button");
         kick.className = "btn btn--ghost";
