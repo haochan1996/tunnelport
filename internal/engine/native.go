@@ -15,10 +15,12 @@ package engine
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,7 +46,8 @@ type nativeHandshake struct {
 	Token    string   `json:"t"`
 	Version  string   `json:"v"`
 	Services []string `json:"s"`
-	Slot     int      `json:"slot"` // 客户端偏好端口槽（粘性重连）；0=无偏好
+	Slot     *int     `json:"slot"` // 偏好端口槽（粘性重连）；nil=无偏好
+	Device   string   `json:"d"`    // 设备身份（同设备识别，端口恒定）
 }
 
 // ---------- 帧 ----------
@@ -115,6 +118,7 @@ type slotMan struct {
 // slotSession 一个活跃会话的全部持有物；shutdown 幂等回收。
 type slotSession struct {
 	slot      int
+	device    string
 	sess      *smux.Session
 	conn      net.Conn
 	listeners []net.Listener
@@ -135,9 +139,11 @@ func (s *slotSession) shutdown() {
 	})
 }
 
-// allocPrefer 分配端口槽：优先给 pref（粘性，重连回原槽）；
-// pref 槽被"死会话"占着时强制回收接管，被真活跃会话占着则顺延。
-func (m *slotMan) allocPrefer(pref int) int {
+// allocPrefer 分配端口槽（设备级端口恒定）：
+//  1. 偏好槽可用（空闲/已死）→ 直接给
+//  2. 偏好槽被本设备的旧会话占着 → 强接管（重连快于清理也不漂移）
+//  3. 否则顺延最小空闲槽
+func (m *slotMan) allocPrefer(pref *int, device string) int {
 	m.mu.Lock()
 	if m.used == nil {
 		m.used = map[int]bool{}
@@ -147,19 +153,24 @@ func (m *slotMan) allocPrefer(pref int) int {
 	take := func(k int) bool {
 		if m.used[k] {
 			s := m.sessions[k]
-			if s == nil || s.sess == nil || !s.sess.IsClosed() {
-				return false // 真活跃，不可抢
+			if s != nil && s.sess != nil && !s.sess.IsClosed() {
+				// 活跃会话：仅同设备可强接管（不同设备绝不抢）
+				if device == "" || s.device != device {
+					return false
+				}
 			}
-			zombies = append(zombies, s) // 僵尸：出锁后回收
-			delete(m.sessions, k)
+			if s != nil {
+				zombies = append(zombies, s) // 出锁后回收（含被接管的同设备旧会话）
+				delete(m.sessions, k)
+			}
 			m.used[k] = false
 		}
 		m.used[k] = true
 		return true
 	}
 	chosen := -1
-	if pref >= 0 && (m.max == 0 || pref < m.max) && take(pref) {
-		chosen = pref
+	if pref != nil && *pref >= 0 && (m.max == 0 || *pref < m.max) && take(*pref) {
+		chosen = *pref
 	} else {
 		for k := 0; m.max == 0 || k < m.max; k++ {
 			if !m.used[k] {
@@ -171,9 +182,20 @@ func (m *slotMan) allocPrefer(pref int) int {
 	}
 	m.mu.Unlock()
 	for _, z := range zombies {
+		nlog("serve: 会话接管/回收（槽 #%d）", z.slot)
 		z.shutdown()
 	}
 	return chosen
+}
+
+// release 租约释放：仅当槽仍归本会话所有才清位（被接管后不再误放）。
+func (m *slotMan) release(ss *slotSession) {
+	m.mu.Lock()
+	if m.sessions[ss.slot] == ss {
+		delete(m.sessions, ss.slot)
+		m.used[ss.slot] = false
+	}
+	m.mu.Unlock()
 }
 
 func (m *slotMan) attach(slot int, s *slotSession) {
@@ -365,13 +387,19 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	_ = conn.SetDeadline(time.Time{})
 
 	// 分配端口槽并把实际入口端口告知客户端（多设备核心）；带粘性偏好
-	slot := sm.allocPrefer(hs.Slot)
+	slot := sm.allocPrefer(hs.Slot, hs.Device)
 	if slot < 0 {
 		_ = writeFrame(conn, []byte(`{"err":"设备数已满"}`))
 		nlog("serve: 设备槽已满，拒绝 %s", conn.RemoteAddr())
 		return
 	}
-	defer sm.free(slot)
+	// 租约释放：attach 前早退用 free，attach 后用 release（被接管时不误放）
+	var ss *slotSession
+	defer func() {
+		if ss == nil {
+			sm.free(slot)
+		}
+	}()
 	assigned := map[string]int{
 		ServiceOrca:   pubBase + 2*slot,
 		ServiceHealth: pubBase + 2*slot + 1,
@@ -417,7 +445,8 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	}
 	n.set(Connected, "", "")
 
-	ss := &slotSession{slot: slot, sess: sess, conn: conn}
+	ss = &slotSession{slot: slot, device: hs.Device, sess: sess, conn: conn}
+	defer sm.release(ss)
 	for _, l := range listeners {
 		ss.listeners = append(ss.listeners, l)
 	}
@@ -494,7 +523,12 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 		services[s.Name] = s.LocalAddr
 		names = append(names, s.Name)
 	}
-	hs := nativeHandshake{Token: cfg.Token, Version: nativeProtoVersion, Services: names, Slot: readSlotHint(cfg)}
+	var slotPref *int
+	if v, ok := readSlotHint(cfg); ok {
+		slotPref = &v
+	}
+	hs := nativeHandshake{Token: cfg.Token, Version: nativeProtoVersion, Services: names,
+		Slot: slotPref, Device: deviceID(cfg)}
 	b, _ := json.Marshal(hs)
 	if err := writeFrame(conn, b); err != nil {
 		return err
@@ -596,22 +630,22 @@ func nlog(format string, args ...any) {
 	}
 }
 
-// ---------- 槽位粘性：客户端记住自己的端口槽 ----------
+// ---------- 槽位粘性：设备身份 + 槽位记忆 ----------
 
-// readSlotHint 读取上次分配的槽号（无则 0=无偏好）。
-func readSlotHint(cfg Config) int {
+// readSlotHint 读取上次分配的槽号。
+func readSlotHint(cfg Config) (int, bool) {
 	if cfg.CertRoot == "" {
-		return 0
+		return 0, false
 	}
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(cfg.CertRoot), "slot"))
 	if err != nil {
-		return 0
+		return 0, false
 	}
 	v, err := strconv.Atoi(strings.TrimSpace(string(b)))
 	if err != nil || v < 0 {
-		return 0
+		return 0, false
 	}
-	return v
+	return v, true
 }
 
 // saveSlotHint 落盘槽号。
@@ -620,4 +654,23 @@ func saveSlotHint(cfg Config, k int) {
 		return
 	}
 	_ = os.WriteFile(filepath.Join(filepath.Dir(cfg.CertRoot), "slot"), []byte(strconv.Itoa(k)), 0o600)
+}
+
+// deviceID 本机稳定设备身份（首次生成后持久复用）。
+// 同一配置目录 = 同一设备；服务端凭它实现"一设备一固定端口"。
+func deviceID(cfg Config) string {
+	if cfg.CertRoot == "" {
+		return ""
+	}
+	p := filepath.Join(filepath.Dir(cfg.CertRoot), "device")
+	if b, err := os.ReadFile(p); err == nil {
+		if id := strings.TrimSpace(string(b)); id != "" {
+			return id
+		}
+	}
+	var buf [8]byte
+	_, _ = rand.Read(buf[:])
+	id := hex.EncodeToString(buf[:])
+	_ = os.WriteFile(p, []byte(id), 0o600)
+	return id
 }
