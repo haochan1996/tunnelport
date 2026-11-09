@@ -347,7 +347,8 @@ pre {
 /* 服务端设备行（v1.0.23：独立布局，窄视口不折叠） -------------------------- */
 
 .drow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr); /* 名字定宽：各行列对齐 */
   align-items: center;
   gap: var(--s4);
   padding: var(--s2) 0;
@@ -356,7 +357,9 @@ pre {
 
 .drow__name {
   font-weight: 700;
-  min-width: 10rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drow__info {

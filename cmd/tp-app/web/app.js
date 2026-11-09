@@ -570,6 +570,7 @@
       var name = document.createElement("span");
       name.className = "drow__name";
       name.textContent = d.name ? (d.name + (d.self ? "（本机）" : "")) : (d.self ? "本机" : "设备 " + String(d.slot + 1));
+      name.title = name.textContent; // 名字过长省略号，悬停看全称
       var info = document.createElement("span");
       info.className = "drow__info";
       info.textContent = "ID " + String(d.device || "—").slice(0, 8) + " · 入口端口 " + d.orca + " · " + (mins >= 0 ? mins + " 分钟" : "—");
