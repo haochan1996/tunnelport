@@ -238,13 +238,23 @@
     // 日志屏：级别筛选 / 搜索 / 清空 / 复制（v1.5 修死控件）
     function refreshLogs() {
       call("Logs", logLv, logKw).then(paintLogs).catch(function () {});
+      call("LogCounts").then(function (c) {
+        if (!c) return;
+        qa(".logbar .seg button").forEach(function (b) {
+          var lv = parseInt(b.getAttribute("data-lv") || "0", 10);
+          var n = lv === 0 ? c.all : (lv === 1 ? c.info : (lv === 2 ? c.warn : c.error));
+          var base = b.getAttribute("data-base") || b.textContent.trim();
+          b.setAttribute("data-base", base);
+          b.textContent = base + " " + n;
+        });
+      }).catch(function () {});
     }
     var LV = { "全部": 0, "INFO": 1, "WARN": 2, "ERROR": 3 };
     var segBtns = qa(".logbar .seg button");
     segBtns.forEach(function (b) {
       b.addEventListener("click", function () {
         segBtns.forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
-        logLv = LV[b.textContent.trim()] || 0;
+        logLv = parseInt(b.getAttribute("data-lv") || "0", 10);
         if (logLv === 0) {
           // 「全部」= 清除一切过滤（含搜索词）
           logKw = "";
@@ -407,8 +417,11 @@
         }
         runUpdateWithProgress(go, function () {
           go.setAttribute("data-done", "1");
-          go.textContent = "已更新 · 点击重启";
+          go.textContent = "正在重启…";
           later.remove();
+          call("Restart").catch(function () {
+            go.textContent = "重启未生效 · 点击重试";
+          });
         }, function (err) {
           go.textContent = err;
           setTimeout(function () { go.textContent = "更新并重启"; }, 3000);
@@ -496,8 +509,12 @@
           updState = 3;
           runUpdateWithProgress(updBtn, function (msg) {
             if (msg.indexOf("重启") >= 0) {
-              updState = 4;
-              updBtn.textContent = "已更新 · 点击重启";
+              updState = 3;
+              updBtn.textContent = "正在重启…";
+              call("Restart").catch(function () {
+                updState = 4;
+                updBtn.textContent = "重启未生效 · 点击重试";
+              });
             } else {
               updState = 2;
               updBtn.textContent = msg;

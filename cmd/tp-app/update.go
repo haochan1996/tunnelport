@@ -249,9 +249,9 @@ func runUpdate() (string, error) {
 			upd.message = speed
 			upd.mu.Unlock()
 		}}
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
+	exe := exePath
+	if exe == "" {
+		exe, _ = os.Executable()
 	}
 	tmp := exe + ".new"
 	f, err := os.Create(tmp)
@@ -290,9 +290,9 @@ func (App) DoUpdate() (string, error) {
 // 直接拉起新进程（不经 PowerShell/cmd 中间人，消灭转义/延时/临时脚本三个故障源），
 // 新进程带 --restart 轮询等单实例锁；旧进程优雅退出 + 强制退出兜底，保证锁必释放。
 func (App) Restart() error {
-	exe, err := os.Executable()
-	if err != nil {
-		return err
+	exe := exePath
+	if exe == "" {
+		exe, _ = os.Executable()
 	}
 	cmd := hiddenCmd(exe, "--restart")
 	cmd.Dir = filepath.Dir(exe)

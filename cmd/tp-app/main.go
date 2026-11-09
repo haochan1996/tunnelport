@@ -243,8 +243,25 @@ func logLevelOf(l string) int {
 	}
 }
 
+// LogCounts 各级别行数（筛选按钮实时计数）。
+func (App) LogCounts() (map[string]int, error) {
+	lines := tailLogs(2000)
+	c := map[string]int{"all": len(lines), "info": 0, "warn": 0, "error": 0}
+	for _, l := range lines {
+		switch logLevelOf(l) {
+		case 3:
+			c["error"]++
+		case 2:
+			c["warn"]++
+		default:
+			c["info"]++
+		}
+	}
+	return c, nil
+}
+
 func (App) Logs(level int, search string) ([]string, error) {
-	lines := tailLogs(500)
+	lines := tailLogs(2000) // 视图窗 2000 行（v1.0.34：加长保存时长）
 	var out []string
 	for _, l := range lines {
 		if level > 0 && logLevelOf(l) != level {
@@ -642,6 +659,10 @@ func boolWord(b bool) string {
 
 // ---------- 入口 ----------
 
+// exePath 启动时捕获的本程序路径。更新的"改名替换"会让 os.Executable()
+// 跟着漂移到 .old（甚至指向已删除文件），重启/自启一律用这个稳定路径（v1.0.34）。
+var exePath string
+
 func hasArg(flag string) bool {
 	for _, a := range os.Args[1:] {
 		if a == flag {
@@ -652,6 +673,7 @@ func hasArg(flag string) bool {
 }
 
 func main() {
+	exePath, _ = os.Executable()
 	// 默认开机自启：首次运行自动注册；用户在设置里关过（decided 标记）则不再自动开
 	if home, err := os.UserHomeDir(); err == nil {
 		marker := filepath.Join(home, ".tunnelport", "autostart.decided")

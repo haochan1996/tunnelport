@@ -794,12 +794,31 @@ func clientTLSConfig(rootPath string) (*tls.Config, error) {
 
 // nlog 把引擎事件写入 ~/.tunnelport/engine.log（tp logs 可见；失败不致命）。
 func nlog(format string, args ...any) {
-	if d, err := os.UserHomeDir(); err == nil {
-		if f, err := os.OpenFile(filepath.Join(d, ".tunnelport", "engine.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
-			fmt.Fprintf(f, time.Now().Format(time.RFC3339)+" "+format+"\n", args...)
-			_ = f.Close()
-		}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
 	}
+	dir := filepath.Join(home, ".tunnelport")
+	_ = os.MkdirAll(dir, 0o700)
+	p := filepath.Join(dir, "engine.log")
+	rotateLog(p, 5<<20) // 单文件 5MB 轮转（v1.0.34 日志保留）
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = fmt.Fprintf(f, "%s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
+}
+
+// rotateLog 超限时轮转：engine.log → .1 → .2（三代约 15MB 上限，正常用量覆盖数月）。
+func rotateLog(p string, max int64) {
+	fi, err := os.Stat(p)
+	if err != nil || fi.Size() < max {
+		return
+	}
+	_ = os.Remove(p + ".2")
+	_ = os.Rename(p+".1", p+".2")
+	_ = os.Rename(p, p+".1")
 }
 
 // ---------- 槽位粘性：设备身份 + 槽位记忆 ----------
