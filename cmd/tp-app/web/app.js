@@ -419,7 +419,7 @@
     if (updBtn) {
       var updState = 0; // 0 未检查 / 1 可更新 / 2 已最新或已装
       updBtn.addEventListener("click", function () {
-        if (updState === 0 || updState === 3) {
+        if (updState === 0 || updState === 2 || updState === 3) { // 2=已最新也允许重查（v1.0.7）
           updState = 3;
           updBtn.textContent = "检查中…";
           call("CheckUpdate").then(function (u) {
