@@ -295,7 +295,8 @@ func (App) Restart() error {
 	// --restart 让新实例轮询等待单实例锁（本进程退出拆解 webview 需 1~3s，
 	// 短延时拉起会撞锁后静默退出——v1.0.6 修复"点击重启没起来"）
 	if runtime.GOOS == "windows" {
-		err = hiddenCmd("cmd", "/c", `ping -n 5 127.0.0.1 >nul & start "" "`+exe+`" --restart`).Start()
+		q := strings.ReplaceAll(exe, "'", "''")
+		err = startPS("Start-Sleep -Seconds 3; Start-Process -LiteralPath '" + q + "' -ArgumentList '--restart'")
 	} else {
 		err = hiddenCmd("sh", "-c", `sleep 3; "`+exe+`" --restart >/dev/null 2>&1 &`).Start()
 	}

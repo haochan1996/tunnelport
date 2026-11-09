@@ -114,6 +114,8 @@ type slotMan struct {
 	used     map[int]bool
 	max      int // 0 = 不限
 	sessions map[int]*slotSession
+	bans     map[string]string // device -> name（被移除设备，拒绝重连）
+	banPath  string            // 封禁持久化文件
 }
 
 // slotSession 一个活跃会话的全部持有物；shutdown 幂等回收。
@@ -139,6 +141,7 @@ type DeviceInfo struct {
 	Health int    `json:"health"`
 	Since  string `json:"since"`
 	Self   bool   `json:"self"`
+	Banned bool   `json:"banned"`
 }
 
 func (s *slotSession) shutdown() {
@@ -227,12 +230,67 @@ func (m *slotMan) free(k int) {
 	m.mu.Unlock()
 }
 
-// snapshot 当前会话清单（设备查询）。
+// loadBans 启动时载入封禁簿。
+func (m *slotMan) loadBans(path string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.banPath = path
+	m.bans = map[string]string{}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	_ = json.Unmarshal(b, &m.bans)
+}
+
+func (m *slotMan) saveBans() {
+	if m.banPath == "" {
+		return
+	}
+	b, _ := json.Marshal(m.bans)
+	_ = os.WriteFile(m.banPath, b, 0o600)
+}
+
+// isBanned 设备是否被移除（拒绝重连）。
+func (m *slotMan) isBanned(device string) bool {
+	if device == "" {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.bans[device] != ""
+}
+
+// ban 封禁设备（移除后拒绝重连）。
+func (m *slotMan) ban(device, name string) {
+	if device == "" {
+		return
+	}
+	m.mu.Lock()
+	m.bans[device] = name
+	m.saveBans()
+	m.mu.Unlock()
+	nlog("serve: 设备 %s（%s）已移除并封禁", name, device[:min(8, len(device))])
+}
+
+// unban 解封（设备清单"恢复"）。
+func (m *slotMan) unban(device string) {
+	m.mu.Lock()
+	delete(m.bans, device)
+	m.saveBans()
+	m.mu.Unlock()
+}
+
+// snapshot 当前会话清单（设备查询，含已封禁）。
 func (m *slotMan) snapshot(self string) []DeviceInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]DeviceInfo, 0, len(m.sessions))
+	seen := map[string]bool{}
 	for _, s := range m.sessions {
+		if s.device != "" {
+			seen[s.device] = true
+		}
 		out = append(out, DeviceInfo{
 			Name:   s.name,
 			Device: s.device,
@@ -242,6 +300,11 @@ func (m *slotMan) snapshot(self string) []DeviceInfo {
 			Since:  s.since.Format(time.RFC3339),
 			Self:   self != "" && s.device == self,
 		})
+	}
+	for dev, nm := range m.bans {
+		if _, online := seen[dev]; !online {
+			out = append(out, DeviceInfo{Name: nm, Device: dev, Banned: true})
+		}
 	}
 	return out
 }
@@ -257,6 +320,9 @@ func (m *slotMan) kick(slot int) bool {
 	m.mu.Unlock()
 	if ok {
 		nlog("serve: 移除设备（槽 #%d）", slot)
+		if s.device != "" {
+			m.ban(s.device, s.name) // 有身份的设备：移除后禁止重连
+		}
 		s.shutdown()
 	}
 	return ok
@@ -402,6 +468,7 @@ func (n *nativeEngine) runServer(ctx context.Context, cfg Config) error {
 		}
 	}
 	sm := &slotMan{max: cfg.Devices}
+	sm.loadBans(filepath.Join(filepath.Dir(cfg.CertPem), "bans.json"))
 	// 对账回收：僵尸会话（控制连接已死）定期清理，端口不外泄
 	go func() {
 		for range time.Tick(10 * time.Second) {
@@ -433,6 +500,10 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	if json.Unmarshal(frame, &hs) != nil || !tokenEq(hs.Token, cfg.Token) || hs.Version != nativeProtoVersion {
 		nlog("serve: 鉴权失败来自 %s", conn.RemoteAddr())
 		_ = writeFrame(conn, []byte("ERR"))
+		return
+	}
+	if sm.isBanned(hs.Device) {
+		_ = writeFrame(conn, []byte(`{"err":"设备已被移除，请联系管理员恢复或重新配对"}`))
 		return
 	}
 	nlog("serve: 客户端 %s 已鉴权，注册服务 %v", conn.RemoteAddr(), hs.Services)
@@ -531,6 +602,9 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 					} else {
 						_ = writeFrame(stm, []byte("ERR"))
 					}
+				case strings.HasPrefix(body, "@unban:"):
+					sm.unban(strings.TrimPrefix(body, "@unban:"))
+					_ = writeFrame(stm, []byte("OK"))
 				}
 			}(stm)
 		}
@@ -823,4 +897,25 @@ func (n *nativeEngine) Kick(slot int) error {
 		return fmt.Errorf("移除失败（设备可能已离线）")
 	}
 	return nil
+}
+
+// Unban 解封被移除的设备（设备清单"恢复"）。
+func (n *nativeEngine) Unban(device string) error {
+	n.mu.Lock()
+	sess := n.sess
+	n.mu.Unlock()
+	if sess == nil {
+		return fmt.Errorf("未连接")
+	}
+	stm, err := sess.OpenStream()
+	if err != nil {
+		return err
+	}
+	defer stm.Close()
+	_ = stm.SetDeadline(time.Now().Add(5 * time.Second))
+	if err := writeFrame(stm, []byte("@unban:"+device)); err != nil {
+		return err
+	}
+	_, err = readFrame(stm)
+	return err
 }

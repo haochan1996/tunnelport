@@ -576,14 +576,31 @@
       info.textContent = "ID " + String(d.device || "—").slice(0, 8) + " · 入口端口 " + d.orca + " · " + (mins >= 0 ? mins + " 分钟" : "—");
       // 状态与操作内联在信息行尾（任何宽度都可见）
       var badge = document.createElement("span");
-      badge.textContent = " · " + (d.self ? "本机" : "在线");
-      badge.style.color = "var(--pass)";
+      badge.textContent = " · " + (d.banned ? "已移除" : (d.self ? "本机" : "在线"));
+      badge.style.color = d.banned ? "var(--ink-3)" : "var(--pass)";
       info.appendChild(badge);
-      if (!d.self) {
+      if (d.banned) {
+        var back = document.createElement("button");
+        back.className = "btn btn--ghost";
+        back.textContent = "恢复";
+        back.style.cssText = "font-size: var(--fs-small); padding: 2px var(--s3); margin-left: var(--s3)";
+        back.addEventListener("click", function () {
+          back.textContent = "恢复中…";
+          call("Unban", d.device).then(function () {
+            call("Devices").then(paintDevices).catch(function () {});
+          }).catch(function () {
+            back.textContent = "失败";
+            setTimeout(function () { back.textContent = "恢复"; }, 2000);
+          });
+        });
+        info.appendChild(back);
+      } else if (!d.self) {
         var kick = document.createElement("button");
         kick.className = "btn btn--ghost";
         kick.textContent = "移除";
         kick.style.cssText = "font-size: var(--fs-small); padding: 2px var(--s3); margin-left: var(--s3)";
+        kick.title = d.device ? "移除后禁止该设备重新连接（可随时恢复）"
+          : "旧版客户端无法禁止重连；请升级该设备的 tunnelport，或在设置中重置配对";
         kick.addEventListener("click", function () {
           kick.textContent = "移除中…";
           call("Kick", d.slot).then(function () {
