@@ -25,6 +25,7 @@
   /* brand: sticker only */
   --amber: #e0a62b;
   --amber-d: #f0bc45;
+  --amber-l: #ffd76e; /* 亮琥珀：墨底上的品牌字（APCA 达标） */
   --on-amber: #0b0800;
 
   /* semantic: diagnostics readout only */
@@ -33,6 +34,7 @@
   --warn: #8a6a12;
   --pass-d: #8fe3be;
   --fail-d: #ffc2b0;
+  --fail-dk: #8c231b; /* 深红：浅字 hover 底（APCA 达标） */
   --warn-d: #f2cc74;
 
   /* elevation: named levels only */
@@ -178,8 +180,8 @@ pre {
   font-size: 0.75rem;
   line-height: 1.5;
   font-weight: 700;
-  background: var(--amber);
-  color: var(--on-amber);
+  background: var(--ink-bg);
+  color: var(--amber-l);
   padding: 1px var(--s2);
   border-radius: var(--r1);
   white-space: nowrap;
@@ -281,7 +283,7 @@ pre {
 }
 
 .winctl .winctl__close:hover {
-  background: var(--fail);
+  background: var(--fail-dk);
   color: var(--on-ink);
 }
 

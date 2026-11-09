@@ -139,7 +139,7 @@ func (App) Status() (StatusDTO, error) {
 		{"本地映射", st.localMap},
 		{"隧道引擎", "自研 · rathole 逃生舱"},
 		{"开机自启", boolWord(autoStartEnabled())},
-		{"健康自检", st.health},
+		{"健康自检", health},
 	}
 	d.Bar = st.state
 	d.Version = version
