@@ -44,6 +44,7 @@ type nativeHandshake struct {
 	Token    string   `json:"t"`
 	Version  string   `json:"v"`
 	Services []string `json:"s"`
+	Slot     int      `json:"slot"` // 客户端偏好端口槽（粘性重连）；0=无偏好
 }
 
 // ---------- 帧 ----------
@@ -103,32 +104,107 @@ func pipe(a, b net.Conn) {
 
 // ---------- 引擎实现 ----------
 
-// slotMan 服务端端口槽分配器：每个连接独占一个槽（2 个公开端口）。
+// slotMan 服务端端口槽分配器 + 会话登记簿（对账回收 / 粘性接管）。
 type slotMan struct {
-	mu   sync.Mutex
-	used map[int]bool
-	max  int // 0 = 不限
+	mu       sync.Mutex
+	used     map[int]bool
+	max      int // 0 = 不限
+	sessions map[int]*slotSession
 }
 
-func (m *slotMan) alloc() int {
+// slotSession 一个活跃会话的全部持有物；shutdown 幂等回收。
+type slotSession struct {
+	slot      int
+	sess      *smux.Session
+	conn      net.Conn
+	listeners []net.Listener
+	once      sync.Once
+}
+
+func (s *slotSession) shutdown() {
+	s.once.Do(func() {
+		for _, l := range s.listeners {
+			_ = l.Close()
+		}
+		if s.sess != nil {
+			_ = s.sess.Close()
+		}
+		if s.conn != nil {
+			_ = s.conn.Close()
+		}
+	})
+}
+
+// allocPrefer 分配端口槽：优先给 pref（粘性，重连回原槽）；
+// pref 槽被"死会话"占着时强制回收接管，被真活跃会话占着则顺延。
+func (m *slotMan) allocPrefer(pref int) int {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.used == nil {
 		m.used = map[int]bool{}
+		m.sessions = map[int]*slotSession{}
 	}
-	for k := 0; m.max == 0 || k < m.max; k++ {
-		if !m.used[k] {
-			m.used[k] = true
-			return k
+	var zombies []*slotSession
+	take := func(k int) bool {
+		if m.used[k] {
+			s := m.sessions[k]
+			if s == nil || s.sess == nil || !s.sess.IsClosed() {
+				return false // 真活跃，不可抢
+			}
+			zombies = append(zombies, s) // 僵尸：出锁后回收
+			delete(m.sessions, k)
+			m.used[k] = false
+		}
+		m.used[k] = true
+		return true
+	}
+	chosen := -1
+	if pref >= 0 && (m.max == 0 || pref < m.max) && take(pref) {
+		chosen = pref
+	} else {
+		for k := 0; m.max == 0 || k < m.max; k++ {
+			if !m.used[k] {
+				m.used[k] = true
+				chosen = k
+				break
+			}
 		}
 	}
-	return -1
+	m.mu.Unlock()
+	for _, z := range zombies {
+		z.shutdown()
+	}
+	return chosen
+}
+
+func (m *slotMan) attach(slot int, s *slotSession) {
+	m.mu.Lock()
+	m.sessions[slot] = s
+	m.mu.Unlock()
 }
 
 func (m *slotMan) free(k int) {
 	m.mu.Lock()
 	m.used[k] = false
+	delete(m.sessions, k)
 	m.mu.Unlock()
+}
+
+// reap 对账回收：清掉 smux 已关闭（控制连接已死）的僵尸会话。
+func (m *slotMan) reap() {
+	m.mu.Lock()
+	var dead []*slotSession
+	for k, s := range m.sessions {
+		if s.sess != nil && s.sess.IsClosed() {
+			dead = append(dead, s)
+			delete(m.sessions, k)
+			m.used[k] = false
+		}
+	}
+	m.mu.Unlock()
+	for _, s := range dead {
+		nlog("serve: 回收僵尸会话（槽 #%d），端口释放", s.slot)
+		s.shutdown()
+	}
 }
 
 type nativeEngine struct {
@@ -252,6 +328,12 @@ func (n *nativeEngine) runServer(ctx context.Context, cfg Config) error {
 		}
 	}
 	sm := &slotMan{max: cfg.Devices}
+	// 对账回收：僵尸会话（控制连接已死）定期清理，端口不外泄
+	go func() {
+		for range time.Tick(10 * time.Second) {
+			sm.reap()
+		}
+	}()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -282,8 +364,8 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	nlog("serve: 客户端 %s 已鉴权，注册服务 %v", conn.RemoteAddr(), hs.Services)
 	_ = conn.SetDeadline(time.Time{})
 
-	// 分配端口槽并把实际入口端口告知客户端（多设备核心）
-	slot := sm.alloc()
+	// 分配端口槽并把实际入口端口告知客户端（多设备核心）；带粘性偏好
+	slot := sm.allocPrefer(hs.Slot)
 	if slot < 0 {
 		_ = writeFrame(conn, []byte(`{"err":"设备数已满"}`))
 		nlog("serve: 设备槽已满，拒绝 %s", conn.RemoteAddr())
@@ -293,12 +375,19 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 	assigned := map[string]int{
 		ServiceOrca:   pubBase + 2*slot,
 		ServiceHealth: pubBase + 2*slot + 1,
+		"slot":        slot, // 回传槽号：客户端记住，下次重连回原槽
 	}
 	resp, _ := json.Marshal(assigned)
 	if err := writeFrame(conn, resp); err != nil {
 		return
 	}
 	nlog("serve: 分配端口槽 #%d → %v", slot, assigned)
+
+	// 控制连接 TCP keepalive：死对端分钟级兜底检测
+	if tc, ok := conn.(*net.TCPConn); ok {
+		_ = tc.SetKeepAlive(true)
+		_ = tc.SetKeepAlivePeriod(15 * time.Second)
+	}
 
 	sess, err := smux.Server(conn, muxCfg())
 	if err != nil {
@@ -327,6 +416,12 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 		listeners[name] = l
 	}
 	n.set(Connected, "", "")
+
+	ss := &slotSession{slot: slot, sess: sess, conn: conn}
+	for _, l := range listeners {
+		ss.listeners = append(ss.listeners, l)
+	}
+	sm.attach(slot, ss)
 
 	var wg sync.WaitGroup
 	for name, l := range listeners {
@@ -361,10 +456,8 @@ func (n *nativeEngine) serveConn(ctx context.Context, conn net.Conn, cfg Config,
 		}
 		time.Sleep(time.Second)
 	}
-	// 关闭监听让 accept goroutine 退出，再等待（defer 顺序易死锁，显式收尾）
-	for _, l := range listeners {
-		_ = l.Close()
-	}
+	// 统一幂等收尾（shutdown 关监听/会话/连接），再等 accept goroutine 退出
+	ss.shutdown()
 	wg.Wait()
 	return
 }
@@ -401,7 +494,7 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 		services[s.Name] = s.LocalAddr
 		names = append(names, s.Name)
 	}
-	hs := nativeHandshake{Token: cfg.Token, Version: nativeProtoVersion, Services: names}
+	hs := nativeHandshake{Token: cfg.Token, Version: nativeProtoVersion, Services: names, Slot: readSlotHint(cfg)}
 	b, _ := json.Marshal(hs)
 	if err := writeFrame(conn, b); err != nil {
 		return err
@@ -428,6 +521,9 @@ func (n *nativeEngine) runClient(ctx context.Context, cfg Config) error {
 	n.ports = assigned
 	n.mu.Unlock()
 	nlog("client: 已分配端口 %v", assigned)
+	if k, ok := assigned["slot"]; ok {
+		saveSlotHint(cfg, k) // 记住槽号：重连回原入口端口
+	}
 	nlog("client: 鉴权通过，服务 %v", names)
 
 	sess, err := smux.Client(conn, muxCfg())
@@ -498,4 +594,30 @@ func nlog(format string, args ...any) {
 			_ = f.Close()
 		}
 	}
+}
+
+// ---------- 槽位粘性：客户端记住自己的端口槽 ----------
+
+// readSlotHint 读取上次分配的槽号（无则 0=无偏好）。
+func readSlotHint(cfg Config) int {
+	if cfg.CertRoot == "" {
+		return 0
+	}
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(cfg.CertRoot), "slot"))
+	if err != nil {
+		return 0
+	}
+	v, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || v < 0 {
+		return 0
+	}
+	return v
+}
+
+// saveSlotHint 落盘槽号。
+func saveSlotHint(cfg Config, k int) {
+	if cfg.CertRoot == "" {
+		return
+	}
+	_ = os.WriteFile(filepath.Join(filepath.Dir(cfg.CertRoot), "slot"), []byte(strconv.Itoa(k)), 0o600)
 }
