@@ -344,6 +344,35 @@ pre {
   padding: var(--s5) var(--s7) var(--s5);
 }
 
+/* 服务端设备行（v1.0.23：独立布局，窄视口不折叠） -------------------------- */
+
+.drow {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.drow__name {
+  font-weight: 700;
+  min-width: 10rem;
+}
+
+.drow__info {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.drow__act {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
 /* 更新横幅（自动检查更新，v1.0.1） -------------------------------------- */
 
 .update-banner {

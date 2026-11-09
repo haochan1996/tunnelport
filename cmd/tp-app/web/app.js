@@ -553,7 +553,7 @@
     }
   }
 
-  // 服务端设备清单（v1.0.21）
+  // 服务端设备清单（v1.0.23：独立行布局，窄视口不丢列）
   function paintDevices(list) {
     var host = q("#devlist");
     if (!host) return;
@@ -565,20 +565,19 @@
     host.innerHTML = "";
     list.forEach(function (d) {
       var row = document.createElement("div");
-      row.className = "lrow";
+      row.className = "drow";
       var mins = d.since ? Math.max(0, Math.round((Date.now() - Date.parse(d.since)) / 60000)) : -1;
-      var k = document.createElement("span");
-      k.className = "lrow__key";
-      k.textContent = d.name ? (d.name + (d.self ? "（本机）" : "")) : (d.self ? "本机" : "设备 " + String(d.slot + 1));
-      var v = document.createElement("span");
-      v.className = "lrow__val";
-      v.textContent = "ID " + String(d.device || "—").slice(0, 8) + " · 入口端口 " + d.orca;
-      var st2 = document.createElement("span");
-      st2.className = "lrow__state lrow__state--ok";
-      st2.textContent = "在线";
-      var m = document.createElement("span");
-      m.className = "lrow__meta";
-      m.textContent = mins >= 0 ? mins + " 分钟" : "—";
+      var name = document.createElement("span");
+      name.className = "drow__name";
+      name.textContent = d.name ? (d.name + (d.self ? "（本机）" : "")) : (d.self ? "本机" : "设备 " + String(d.slot + 1));
+      var info = document.createElement("span");
+      info.className = "drow__info";
+      info.textContent = "ID " + String(d.device || "—").slice(0, 8) + " · 入口端口 " + d.orca + " · " + (mins >= 0 ? mins + " 分钟" : "—");
+      // 状态与操作内联在信息行尾（任何宽度都可见）
+      var badge = document.createElement("span");
+      badge.textContent = " · " + (d.self ? "本机" : "在线");
+      badge.style.color = "var(--pass)";
+      info.appendChild(badge);
       if (!d.self) {
         var kick = document.createElement("button");
         kick.className = "btn btn--ghost";
@@ -593,9 +592,9 @@
             setTimeout(function () { kick.textContent = "移除"; }, 2000);
           });
         });
-        m.appendChild(kick);
+        info.appendChild(kick);
       }
-      row.appendChild(k); row.appendChild(v); row.appendChild(st2); row.appendChild(m);
+      row.appendChild(name); row.appendChild(info);
       host.appendChild(row);
     });
   }
