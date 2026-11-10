@@ -385,6 +385,12 @@
         qa(".sticker").forEach(function (el) { el.textContent = d.version; });
         qa(".js-version").forEach(function (el) { el.textContent = d.version; });
       }
+      if (d && typeof d.logsCount === "number") {
+        // 日志表头行数动态化（此前是设计稿写死的 128 行）
+        qa("#view-logs .page-meta").forEach(function (el) {
+          el.textContent = d.logsCount + " 行 · 仅存于本机，不上传";
+        });
+      }
     }).catch(function () {});
 
     // 带进度的更新流（v1.0.12）：StartUpdate 后台下载，轮询 UpdateProgress 刷按钮
