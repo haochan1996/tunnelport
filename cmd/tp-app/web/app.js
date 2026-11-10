@@ -117,6 +117,7 @@
     if (!v) return;
     var host = q(".term", v) || q(".term__line", v)?.parentElement;
     if (!host) return;
+    var atBottom = host.scrollHeight - host.scrollTop - host.clientHeight < 40;
     host.innerHTML = "";
     (lines || []).forEach(function (l) {
       var d = document.createElement("div");
@@ -128,7 +129,7 @@
       d.textContent = l;
       host.appendChild(d);
     });
-    if (logFollow) host.scrollTop = host.scrollHeight;
+    if (logFollow && atBottom) host.scrollTop = host.scrollHeight; // v1.0.36：翻阅时不抢滚动条
   }
 
   // ---------- 交互 ----------
@@ -274,9 +275,24 @@
     }
     qa("#view-logs .page-actions .btn").forEach(function (b) {
       b.addEventListener("click", function () {
-        if (b.textContent.indexOf("清空") >= 0) {
+        if (b.getAttribute("data-armed") === "1") {
+          b.removeAttribute("data-armed");
           call("ClearLogs").then(refreshLogs).catch(function () {});
-        } else if (b.textContent.indexOf("复制") >= 0) {
+          return;
+        }
+        if (b.textContent.indexOf("清空") >= 0) {
+          // 二次确认：清空不可逆，防误触（v1.0.36）
+          b.setAttribute("data-armed", "1");
+          b.textContent = "确认清空？";
+          setTimeout(function () {
+            if (b.getAttribute("data-armed") === "1") {
+              b.removeAttribute("data-armed");
+              b.textContent = "清空";
+            }
+          }, 3000);
+          return;
+        }
+        if (b.textContent.indexOf("复制") >= 0) {
           var txt = qa("#view-logs .term__line").map(function (el) { return el.textContent; }).join("\n");
           call("Copy", txt).then(function () {
             b.textContent = "已复制";
@@ -290,6 +306,10 @@
       followSw.addEventListener("click", function () {
         logFollow = followSw.getAttribute("aria-checked") !== "true";
         followSw.setAttribute("aria-checked", String(logFollow));
+        if (logFollow) {
+          var t2 = q(".logbar") && q(".term", q("#view-logs"));
+          if (t2) t2.scrollTop = t2.scrollHeight;
+        }
       });
     }
 
