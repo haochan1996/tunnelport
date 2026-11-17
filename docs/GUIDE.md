@@ -193,8 +193,8 @@ macOS / Windows：Releases 直接下载，命令相同（`tp serve` / `tp connec
 <summary>开机自启（电脑端）</summary>
 
 - Linux：systemd user unit（`loginctl enable-linger`）
-- macOS：launchd；Windows：计划任务（桌面端设置里一键开关）
-
+- macOS：launchd；Windows：登录启动项（桌面端设置里一键开关）
+- 开机自启只驻托盘小图标、不弹主窗口；连接失败或迟迟连不上（约 1 分钟）才自动打开主界面
 </details>
 
 <details>
