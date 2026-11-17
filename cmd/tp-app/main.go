@@ -64,6 +64,30 @@ var quitting bool
 
 var st = appState{state: "未连接", localMap: "127.0.0.1:6768", minToTray: true}
 
+// hiddenFlag 开机自启专用参数：带它启动 = 只驻托盘，不弹主窗口（issue #3）。
+const hiddenFlag = "--hidden"
+
+// bootRevealDelay 开机自启后等待连接的时限：超时仍未连上就把主窗口亮出来（issue #3）。
+// 60s：登录后 Wi-Fi 关联、DHCP、代理就绪可能要十几秒，留足余量再判定"连不上"。
+const bootRevealDelay = 60 * time.Second
+
+// bootReveal 开机自启（隐藏启动）后的主窗口决策：
+// 已连接 → 不显示，安静驻托盘；失败/无配对 → 立即显示；
+// 仍在连接但已超时 → 显示（用户要看见"连不上"这件事）。
+// 返回 (是否显示, 是否结束观察)。
+func bootReveal(state string, waited time.Duration) (reveal bool, done bool) {
+	switch state {
+	case "已连接":
+		return false, true
+	case "失败", "未连接":
+		return true, true
+	}
+	if waited >= bootRevealDelay {
+		return true, true
+	}
+	return false, false
+}
+
 // ---------- 供页面调用的服务 ----------
 
 // App 是页面可调用的服务（mygo.runtime.call("App.*")）。
@@ -557,6 +581,32 @@ func (App) CreateShortcut() (string, error) {
 	return "快捷方式已创建：" + p, nil
 }
 
+// revealOnBootFailure 开机自启（隐藏启动）时守候连接结果：
+// 连上了就安静待在托盘；连不上（失败/超时）才把主窗口亮给用户看（issue #3）。
+// 用户中途自己开了窗口（托盘点击/二次启动）就不再打扰。
+func revealOnBootFailure(win *mygo.Window, stop <-chan struct{}) {
+	start := time.Now()
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		st.mu.Lock()
+		state := st.state
+		st.mu.Unlock()
+		reveal, done := bootReveal(state, time.Since(start))
+		if reveal {
+			win.Show()
+			return
+		}
+		if done {
+			return // 已连接：主窗口继续隐藏，托盘常驻
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 // ---------- 引擎 ----------
 
 func begin(url string) error {
@@ -663,8 +713,11 @@ func boolWord(b bool) string {
 // 跟着漂移到 .old（甚至指向已删除文件），重启/自启一律用这个稳定路径（v1.0.34）。
 var exePath string
 
+// args 命令行参数（去掉程序名）。抽成包级变量便于测试。
+var args []string
+
 func hasArg(flag string) bool {
-	for _, a := range os.Args[1:] {
+	for _, a := range args {
 		if a == flag {
 			return true
 		}
@@ -681,12 +734,14 @@ func main() {
 			_ = os.MkdirAll(filepath.Dir(marker), 0o755)
 			if !autoStartEnabled() {
 				autoStartEnable()
+				// 新注册已带 --hidden（开机只驻托盘）：写 v2 标记，避免下面重复重写
+				_ = os.WriteFile(filepath.Join(home, ".tunnelport", "autostart.v2"), []byte("1"), 0o644)
 			}
 			_ = os.WriteFile(marker, []byte("1"), 0o644)
 		}
 	}
 
-	args := os.Args[1:]
+	args = os.Args[1:]
 	hasURL := false
 	if len(args) > 0 && strings.HasPrefix(args[0], tokenx.Scheme+"://") {
 		if err := begin(args[0]); err != nil {
@@ -717,6 +772,19 @@ func main() {
 		}
 	}
 
+	// 自启注册升级：老版注册不带 --hidden（开机弹主窗），已启用则按新参数重写一次（issue #3）。
+	// 放在配对解析之后：重写时能带上 pairURL。
+	if home, err := os.UserHomeDir(); err == nil {
+		v2 := filepath.Join(home, ".tunnelport", "autostart.v2")
+		if _, err := os.Stat(v2); err != nil {
+			_ = os.MkdirAll(filepath.Dir(v2), 0o755)
+			if autoStartEnabled() {
+				autoStartEnable()
+			}
+			_ = os.WriteFile(v2, []byte("1"), 0o644)
+		}
+	}
+
 	sub, _ := fs.Sub(web, "web")
 	mygo.SetFrontend(sub)
 	mygo.BindAs("App", &App{})
@@ -731,9 +799,17 @@ func main() {
 		}
 	}
 	if !isPrimary {
-		signalShow()
+		// 隐藏启动的二次实例静默退出：开机自启不打扰已有托盘实例。
+		// 用户手动双击（无 --hidden）才唤起主窗口（托盘常驻时双击图标 = 打开主界面）。
+		if !hasArg(hiddenFlag) {
+			signalShow()
+		}
 		return
 	}
+
+	// 开机自启启动（--hidden）：只驻托盘，连不上才弹主窗口（issue #3）。
+	// 重启（--restart）必须显示主界面 —— 更新后要看得见（v1.0.35）。
+	startHidden := hasArg(hiddenFlag) && !hasArg("--restart")
 
 	mygo.App.SetName("tunnelport")
 	mygo.App.WhenReady(func() {
@@ -754,13 +830,27 @@ func main() {
 			MinWidth: 980, MinHeight: 700,
 			Frameless: true, // 自绘标题栏：右上角 — ▢ ✕ 由页面按钮承担
 			URL:       url,
+			Hidden:    startHidden, // 开机自启：先只驻托盘，不弹主窗口（issue #3）
 		})
-		win.Show() // 显式显示并置前（重启拉起也保证主界面可见，v1.0.35）
+		// 用户自己开窗（托盘点击 / 二次启动）时停掉"连不上才亮窗"的守候，别二次打扰
+		userShown := make(chan struct{})
+		markShown := func() {
+			select {
+			case <-userShown:
+			default:
+				close(userShown)
+			}
+		}
+		if startHidden {
+			go revealOnBootFailure(win, userShown) // 连不上才把主窗口亮出来（issue #3）
+		} else {
+			win.Show() // 显式显示并置前（重启拉起也保证主界面可见，v1.0.35）
+		}
 
 		// 托盘小图标：显示连接状态，菜单可开窗/退出
 		menu := &mygo.Menu{}
 		menu.Append(
-			&mygo.MenuItem{ID: "show", Label: "打开主程序", Click: func(*mygo.MenuItem, *mygo.Window) { win.Show() }},
+			&mygo.MenuItem{ID: "show", Label: "打开主程序", Click: func(*mygo.MenuItem, *mygo.Window) { markShown(); win.Show() }},
 			&mygo.MenuItem{ID: "quit", Label: "退出", Click: func(*mygo.MenuItem, *mygo.Window) { quitting = true; mygo.App.Quit() }},
 		)
 		if tray, err := mygo.NewTray(mygo.TrayOptions{
@@ -773,6 +863,7 @@ func main() {
 				if win.IsVisible() && !win.IsMinimized() {
 					win.Minimize()
 				} else {
+					markShown() // 用户主动开窗：取消开机守候的自动亮窗
 					win.Show()
 				}
 			})
@@ -805,6 +896,7 @@ func main() {
 		go func() {
 			for range time.Tick(time.Second) {
 				if showRequested() {
+					markShown() // 用户主动开窗：取消开机守候的自动亮窗
 					win.Show()
 				}
 			}
@@ -840,10 +932,12 @@ func autoStartEnable() {
 		// .lnk 快捷方式：登录启动完全静默（.bat 会闪 cmd 黑窗，v1.5）
 		q := strings.ReplaceAll(exe, "'", "''")
 		uq := strings.ReplaceAll(url, "'", "''")
+		// --hidden：开机自启只驻托盘，不弹主窗口（issue #3）
+		ua := strings.TrimSpace(uq + " " + hiddenFlag)
 		ps := "$ws = New-Object -ComObject WScript.Shell" + "\r\n" +
 			"$lnk = $ws.CreateShortcut('" + strings.ReplaceAll(startupFile(), "'", "''") + "')" + "\r\n" +
 			"$lnk.TargetPath = '" + q + "'" + "\r\n" +
-			"$lnk.Arguments = '" + uq + "'" + "\r\n" +
+			"$lnk.Arguments = '" + ua + "'" + "\r\n" +
 			"$lnk.Save()"
 		_ = runPS(ps)
 		_ = os.Remove(strings.TrimSuffix(startupFile(), ".lnk") + ".bat") // 清理旧版痕迹
@@ -852,13 +946,13 @@ func autoStartEnable() {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>com.tunnelport.app</string>
-<key>ProgramArguments</key><array><string>%s</string><string>%s</string></array>
+<key>ProgramArguments</key><array><string>%s</string><string>%s</string><string>%s</string></array>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
-</dict></plist>`, exe, url)
+</dict></plist>`, exe, url, hiddenFlag)
 		_ = os.WriteFile(plistPath(), []byte(plist), 0o644)
 		_ = hiddenCmd("launchctl", "load", plistPath()).Run()
 	default:
-		unit := fmt.Sprintf("[Unit]\nDescription=tunnelport\n[Service]\nExecStart=%s %s\nRestart=always\n[Install]\nWantedBy=default.target\n", exe, url)
+		unit := fmt.Sprintf("[Unit]\nDescription=tunnelport\n[Service]\nExecStart=%s %s %s\nRestart=always\n[Install]\nWantedBy=default.target\n", exe, url, hiddenFlag)
 		_ = os.WriteFile(systemdUnitPath(), []byte(unit), 0o644)
 		_ = hiddenCmd("systemctl", "--user", "daemon-reload").Run()
 		_ = hiddenCmd("systemctl", "--user", "enable", "--now", "tunnelport").Run()
